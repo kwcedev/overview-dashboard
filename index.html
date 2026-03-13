@@ -110,7 +110,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* ── ACCENT COLORS ── */
 .c-accent{color:var(--accent)}
 .c-green{color:var(--green)}
-.c-orange{color:var(--orange)}
+.c-orange{color:var(--orange)}.c-muted{color:var(--muted)}
 .c-blue{color:var(--blue)}
 .c-purple{color:var(--purple)}
 .c-red{color:var(--red)}
@@ -507,15 +507,15 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <!-- KPIs -->
     <div class="g3 gap">
       <div class="card">
+        <div class="card-title">Solde ce mois</div>
+        <div class="card-big c-muted" id="b-solde">0€</div>
+        <div class="card-sub">Revenus – Dépenses</div>
+      </div>
+      <div class="card">
         <div class="card-title">Revenus ce mois</div>
         <div class="card-big c-green" id="biz-rev">0€</div>
         <div class="prog-wrap"><div class="prog" id="biz-rev-p" style="width:0%;background:var(--green)"></div></div>
         <div class="card-sub">Obj : <span id="biz-rev-obj">—</span>€</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Solde ce mois</div>
-        <div class="card-big c-green" id="b-solde">0€</div>
-        <div class="card-sub">Revenus – Dépenses</div>
       </div>
       <div class="card">
         <div class="card-title">Dépenses API</div>
@@ -1005,7 +1005,7 @@ function renderBiz(){
   document.getElementById('biz-clients').textContent=S.clients;
   document.getElementById('biz-pt').textContent=S.prospects[td()]||0;
   document.getElementById('inp-rev-obj').value=S.revObj||'';
-  document.getElementById('b-solde').textContent=(rm-dep).toFixed(2)+'€';
+  const solde=rm-dep;const soldeEl=document.getElementById('b-solde');soldeEl.textContent=solde.toFixed(2)+'€';soldeEl.className='card-big '+(solde>0?'c-green':solde<0?'c-red':'c-muted');
   document.getElementById('b-api').textContent=api.toFixed(2)+'€';
   document.getElementById('rev-log').innerHTML=[...S.revenus].reverse().slice(0,10).map((r,i)=>`
     <div class="log-item"><span>${r.label||'Client'} · <b style="color:var(--green)">${r.val}€</b></span>
