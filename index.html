@@ -1137,7 +1137,12 @@ function tgDrop(e,newDayKey){
     const ev=S.agendaEvents.find(e=>e.id===_dgId);
     if(ev){const dur=ev.endH-ev.startH;ev.startH=newSH;ev.endH=newSH+dur;ev.date=newDayKey;}
   }
-  _dgId=null;save();renderPlanContent();renderDailyRender();
+  _dgId=null;save();
+  const _tg=document.querySelector('.tg-outer');
+  const _st=_tg?_tg.scrollTop:0;const _sl=_tg?_tg.scrollLeft:0;
+  renderPlanContent();renderDailyRender();
+  const _tg2=document.querySelector('.tg-outer');
+  if(_tg2){_tg2.scrollTop=_st;_tg2.scrollLeft=_sl;}
 }
 function tgClick(e,dayKey){
   if(e.target.closest('.tg-event'))return;
