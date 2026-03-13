@@ -219,6 +219,49 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .mgauge-day{font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1}
 .mgauge-score{font-family:var(--mono);font-size:8px;color:var(--text2)}
 
+/* ── DAY NAV ── */
+.day-nav{display:flex;align-items:center;justify-content:center;gap:20px;padding:12px 0 20px}
+.day-nav-btn{background:var(--glass2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:18px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent;user-select:none;flex-shrink:0}
+.day-nav-btn:hover{background:var(--glass3);border-color:var(--border2)}
+.day-nav-btn:active{transform:scale(.93)}
+.day-nav-label{font-size:22px;font-weight:800;letter-spacing:-.6px;min-width:140px;text-align:center;color:var(--text)}
+.day-nav-label.today{color:var(--accent);text-shadow:0 0 20px rgba(212,255,0,.3)}
+.day-slide{animation:slideR .22s ease}
+.day-slide-left{animation:slideL .22s ease}
+@keyframes slideR{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideL{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:translateX(0)}}
+/* ── NUTRITION ── */
+.meal-block{background:rgba(12,12,20,.65);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:12px;transition:border-color .2s}
+.meal-block:hover{border-color:var(--border2)}
+.meal-header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.meal-time{font-family:var(--mono);font-size:10px;color:var(--accent);min-width:38px;flex-shrink:0}
+.meal-name{font-size:14px;font-weight:700;flex:1}
+.meal-check{width:22px;height:22px;border:1.5px solid rgba(255,255,255,.18);border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .25s}
+.meal-check.done{background:var(--accent);border-color:var(--accent)}
+.meal-check.done::after{content:'✓';font-size:11px;color:#000;font-weight:900}
+.meal-options{display:flex;flex-direction:column;gap:4px}
+.meal-option{font-size:12.5px;color:var(--text2);padding:8px 12px;background:var(--glass);border-radius:8px;border:1px solid var(--border);line-height:1.5}
+.meal-or{font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;text-align:center;padding:1px 0}
+.cheat-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.25);border-radius:99px;padding:5px 16px;font-size:13px;font-weight:700;color:var(--orange)}
+.shopping-btn{width:100%;margin-top:16px;padding:12px 16px;border-radius:var(--r);background:var(--glass2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.shopping-btn:hover{background:var(--glass3);border-color:var(--border2)}
+.shopping-list{background:var(--glass);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;margin-top:10px;font-size:13px;line-height:2;display:none}
+.shopping-list.open{display:block}
+/* ── SPORT ── */
+.sport-type-badge{font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-glow);border:1px solid rgba(212,255,0,.2);border-radius:8px;padding:4px 14px;display:inline-block;margin-bottom:12px}
+.sport-section-title{font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin:14px 0 8px}
+.exo-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;user-select:none;transition:opacity .15s}
+.exo-row:last-child{border-bottom:none}
+.exo-row:hover{opacity:.85}
+.exo-check{width:19px;height:19px;border:1.5px solid rgba(255,255,255,.18);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .25s}
+.exo-check.done{background:var(--green);border-color:var(--green)}
+.exo-check.done::after{content:'✓';font-size:10px;color:#000;font-weight:900}
+.exo-label{font-size:13px;font-weight:500;flex:1}
+.exo-label.done{color:var(--muted);text-decoration:line-through}
+.exo-sets{font-family:var(--mono);font-size:9.5px;color:var(--muted);flex-shrink:0}
+.sport-prog{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sport-prog-bar{flex:1;background:rgba(255,255,255,.06);border-radius:99px;height:5px;overflow:hidden}
+.sport-prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--accent));border-radius:99px;transition:width .6s ease}
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -264,6 +307,8 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <button class="nav-item" onclick="go('business',this)"><span class="nav-icon">💼</span>Business</button>
     <button class="nav-item" onclick="go('planning',this)"><span class="nav-icon">📅</span>Planning</button>
     <button class="nav-item" onclick="go('corps',this)"><span class="nav-icon">💪</span>Corps</button>
+    <button class="nav-item" onclick="go('nutrition',this)"><span class="nav-icon">🍽</span>Nutrition</button>
+    <button class="nav-item" onclick="go('sport',this)"><span class="nav-icon">🏋</span>Sport</button>
     <button class="nav-item" onclick="go('budget',this)"><span class="nav-icon">💶</span>Budget</button>
     <button class="nav-item" onclick="go('cfg',this)"><span class="nav-icon">⚙</span>Config</button>
   </nav>
@@ -542,6 +587,24 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     </div>
   </div>
 
+  <!-- ═══ NUTRITION ═══ -->
+  <div class="view" id="view-nutrition">
+    <div class="ph">
+      <div class="ph-title">Nutrition</div>
+      <div class="ph-sub">Plan alimentaire · Semaine type</div>
+    </div>
+    <div id="nutri-content"></div>
+  </div>
+
+  <!-- ═══ SPORT ═══ -->
+  <div class="view" id="view-sport">
+    <div class="ph">
+      <div class="ph-title">Sport</div>
+      <div class="ph-sub">Programme d'entraînement · Semaine type</div>
+    </div>
+    <div id="sport-content"></div>
+  </div>
+
   <!-- ═══ BUDGET ═══ -->
   <div class="view" id="view-budget">
     <div class="ph">
@@ -653,7 +716,7 @@ function initFirebase(){
         const active=document.querySelector('.view.active');
         if(active){
           const id=active.id.replace('view-','');
-          const r={home:renderHome,todo:renderTodo,business:renderBiz,planning:renderPlan,corps:renderCorps,budget:renderBudget,cfg:renderCfg};
+          const r={home:renderHome,todo:renderTodo,business:renderBiz,planning:renderPlan,corps:renderCorps,nutrition:renderNutrition,sport:renderSport,budget:renderBudget,cfg:renderCfg};
           if(r[id])r[id]();
         }
         showSync('↓');
@@ -696,7 +759,7 @@ let S=JSON.parse(localStorage.getItem('jtb3')||'null')||{
   start90:null,poidsObj:70,revObj:2000,
   revenus:[],depenses:[],seances:[],poids:[],
   todos:null,extraTodos:[],prospects:{},clients:0,checkDate:null,_ts:0,
-  todoHistory:[]
+  todoHistory:[],nutritionChecks:{},sportChecks:{}
 };
 const save=()=>{
   S._ts=Date.now();
@@ -753,7 +816,7 @@ function r90(){
 }
 
 // ═══ NAV ═══
-const TITLES={home:'Vue d\'ensemble',todo:'Checklist',business:'Business',planning:'Planning',corps:'Corps',budget:'Budget',cfg:'Config'};
+const TITLES={home:'Vue d\'ensemble',todo:'Checklist',business:'Business',planning:'Planning',corps:'Corps',nutrition:'Nutrition',sport:'Sport',budget:'Budget',cfg:'Config'};
 function go(v,btn){
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
@@ -763,7 +826,7 @@ function go(v,btn){
   document.getElementById('mob-title').textContent=TITLES[v]||v;
   sessionStorage.setItem('activeView',v);
   closeSB();
-  const r={home:renderHome,todo:renderTodo,business:renderBiz,planning:renderPlan,corps:renderCorps,budget:renderBudget,cfg:renderCfg};
+  const r={home:renderHome,todo:renderTodo,business:renderBiz,planning:renderPlan,corps:renderCorps,nutrition:renderNutrition,sport:renderSport,budget:renderBudget,cfg:renderCfg};
   if(r[v])r[v]();
 }
 function openSB(){document.getElementById('sidebar').classList.add('open');document.getElementById('ov').classList.add('open')}
@@ -1056,6 +1119,184 @@ function saveFB(){
     initFirebase();
     setTimeout(()=>{document.getElementById('fb-status').textContent=fbReady?'✓ Connecté et synchro':'✗ Erreur connexion'},2000);
   }catch(e){document.getElementById('fb-status').textContent='JSON invalide — vérifie le format'}
+}
+
+// ═══ NUTRITION ═══
+const DAYS_FR=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+let nutriDay=(new Date().getDay()+6)%7;
+let sportDay=(new Date().getDay()+6)%7;
+
+function getDayDate(idx){
+  const now=new Date();const dow=(now.getDay()+6)%7;
+  const d=new Date(now);d.setDate(d.getDate()+(idx-dow));return d.toISOString().slice(0,10);
+}
+
+const MEAL_DATA={
+  breakfast:{time:'8h30',name:'Petit-déjeuner',options:['Milkshake : lait + whey + banane + créatine + grenade','Skyr + miel + muesli + fruit + créatine']},
+  snack:{time:'16h30',name:'Collation',options:['Skyr + miel + muesli','Yaourt grec + fruit','Houmous + wrap + concombre']},
+  dinner:{time:'19h30',name:'Dîner',options:['Saumon + asperges + riz ou semoule','Bœuf + sucrine + avocat','Œufs au plat + salade + pain complet']}
+};
+const LUNCH_PACKS=[
+  {label:'Pack 1',desc:'Bœuf + semoule + poivrons/champignons + huile d\'olive'},
+  {label:'Pack 2',desc:'Wraps + poulet/dinde + sucrine/concombre/cornichons + sauce yaourt citron + avocat'},
+  {label:'Pack 3',desc:'Thon boîte + salade + maïs + cornichons + pain complet'}
+];
+const SHOPPING_ITEMS={
+  breakfast:['Lait','Whey protéine','Banane','Créatine','Grenade','Skyr','Miel','Muesli'],
+  lunch:['Bœuf haché','Semoule','Poivrons','Champignons','Huile d\'olive','Wraps','Poulet ou dinde','Sucrine','Concombre','Cornichons','Sauce yaourt citron','Avocat','Thon en boîte','Salade verte','Maïs','Pain complet'],
+  snack:['Skyr','Miel','Muesli','Yaourt grec','Houmous','Wrap','Concombre'],
+  dinner:['Saumon','Asperges','Riz','Bœuf','Sucrine','Avocat','Œufs','Pain complet']
+};
+
+function nutriToggle(dateKey,mealId){
+  if(!S.nutritionChecks)S.nutritionChecks={};
+  if(!S.nutritionChecks[dateKey])S.nutritionChecks[dateKey]={};
+  S.nutritionChecks[dateKey][mealId]=!S.nutritionChecks[dateKey][mealId];
+  save();renderNutrition();
+}
+function navNutri(dir){nutriDay=(nutriDay+dir+7)%7;renderNutrition(dir>0?'right':'left');}
+function showShopping(){
+  const el=document.getElementById('nutri-shopping');if(!el)return;
+  if(el.classList.contains('open')){el.classList.remove('open');return;}
+  const nextIdx=(nutriDay+1)%7;
+  const isCheat=nextIdx===2||nextIdx===6;
+  const items=new Set([...SHOPPING_ITEMS.breakfast,...SHOPPING_ITEMS.snack,...SHOPPING_ITEMS.dinner]);
+  if(!isCheat)SHOPPING_ITEMS.lunch.forEach(i=>items.add(i));
+  el.innerHTML=`<b style="color:var(--accent);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Liste pour ${DAYS_FR[nextIdx]}</b><br><br>`+[...items].map(i=>`• ${i}`).join('<br>');
+  el.classList.add('open');
+}
+function renderNutrition(dir=''){
+  if(!S.nutritionChecks)S.nutritionChecks={};
+  const todayIdx=(new Date().getDay()+6)%7;
+  const isToday=nutriDay===todayIdx;
+  const dateKey=getDayDate(nutriDay);
+  const checks=S.nutritionChecks[dateKey]||{};
+  const isCheat=nutriDay===2||nutriDay===6;
+  const animClass=dir==='right'?'day-slide':dir==='left'?'day-slide-left':'';
+
+  let h=`<div class="day-nav">
+    <button class="day-nav-btn" onclick="navNutri(-1)">←</button>
+    <div class="day-nav-label${isToday?' today':''}">${DAYS_FR[nutriDay]}${isToday?' <span style="font-size:11px;font-weight:500;opacity:.55">· auj</span>':''}</div>
+    <button class="day-nav-btn" onclick="navNutri(1)">→</button>
+  </div><div class="${animClass}">`;
+
+  const meals=[
+    {id:'breakfast',...MEAL_DATA.breakfast},
+    {id:'lunch',time:'12h30',name:isCheat?'🍕 Cheat Meal':'Déjeuner',isCheat},
+    {id:'snack',...MEAL_DATA.snack},
+    {id:'dinner',...MEAL_DATA.dinner}
+  ];
+  meals.forEach(meal=>{
+    const done=!!checks[meal.id];
+    h+=`<div class="meal-block"><div class="meal-header">
+      <span class="meal-time">${meal.time}</span>
+      <span class="meal-name">${meal.name}</span>
+      <div class="meal-check ${done?'done':''}" onclick="nutriToggle('${dateKey}','${meal.id}')"></div>
+    </div>`;
+    if(meal.isCheat){
+      h+=`<div class="cheat-badge">🍕 Cheat meal — libre !</div>`;
+    } else if(meal.id==='lunch'){
+      h+=`<div class="meal-options">`;
+      LUNCH_PACKS.forEach((p,i)=>{if(i>0)h+=`<div class="meal-or">ou</div>`;h+=`<div class="meal-option"><b style="color:var(--accent);font-size:11px">${p.label}</b> — ${p.desc}</div>`;});
+      h+=`</div>`;
+    } else {
+      h+=`<div class="meal-options">`;
+      meal.options.forEach((o,i)=>{if(i>0)h+=`<div class="meal-or">ou</div>`;h+=`<div class="meal-option">${o}</div>`;});
+      h+=`</div>`;
+    }
+    h+=`</div>`;
+  });
+  h+=`<button class="shopping-btn" onclick="showShopping()">🛒 Liste de courses pour demain</button>
+  <div class="shopping-list" id="nutri-shopping"></div></div>`;
+  document.getElementById('nutri-content').innerHTML=h;
+}
+
+// ═══ SPORT ═══
+const SPORT_PROG=[
+  {day:'Lundi',type:'Upper',
+    warmup:['5 min mobilité articulaire','5 min cardio léger (jumping jacks, bras)'],
+    exos:[{id:'se1',l:'Pompes déclinées lestées',s:'4×6-12'},{id:'se2',l:'Dips chaise',s:'3×8-15'},{id:'se3',l:'Développé militaire',s:'4×10-15'},{id:'se4',l:'Élévations latérales',s:'3×15-25'},{id:'se5',l:'Curl biceps',s:'3×12-20'},{id:'se6',l:'Planche',s:'2×45-60s'}],
+    stretch:['Étirements épaules + pecs (10 min)','Étirements biceps']},
+  {day:'Mardi',type:'Lower + Core',
+    warmup:['5 min mobilité articulaire (hanches, chevilles)','5 min cardio léger'],
+    exos:[{id:'se7',l:'Squat tempo lesté',s:'4×10-15'},{id:'se8',l:'Bulgares',s:'3×8-12/jambe'},{id:'se9',l:'Hip thrust',s:'4×12-25'},{id:'se10',l:'Mollets',s:'3×20-30'},{id:'se11',l:'Dead bug',s:'3×12/côté'},{id:'se12',l:'Planche',s:'2×45s'}],
+    stretch:['Étirements quadriceps, ischio, hanches (10 min)']},
+  {day:'Mercredi',type:'Repos',rest:true,restNote:'Marche légère 10-15 min post cheat meal'},
+  {day:'Jeudi',type:'Back + Arms',
+    warmup:['5 min mobilité articulaire (épaules, dos)','5 min cardio léger'],
+    exos:[{id:'se13',l:'Rowing unilatéral sac',s:'5×10-20/bras'},{id:'se14',l:'Oiseau buste penché',s:'4×15-25'},{id:'se15',l:'Curl marteau',s:'3×12-20'},{id:'se16',l:'Curl biceps',s:'3×12-20'},{id:'se17',l:'Superman hold',s:'3×30-45s'}],
+    stretch:['Étirements dos, biceps, épaules (10 min)']},
+  {day:'Vendredi',type:'Circuit densité',note:'4 tours · Repos 90s entre tours',
+    warmup:['5 min mobilité articulaire','5 min cardio léger'],
+    exos:[{id:'se18',l:'Pompes',s:'8-15 reps'},{id:'se19',l:'Squat lesté',s:'12-20 reps'},{id:'se20',l:'Rowing sac',s:'12-20 reps'},{id:'se21',l:'Dips',s:'8-15 reps'},{id:'se22',l:'Planche',s:'45s'}],
+    stretch:['Étirements full body (10 min)']},
+  {day:'Samedi',type:'Pump + Posture',
+    warmup:['5 min mobilité articulaire','5 min cardio léger'],
+    exos:[{id:'se23',l:'Pompes prise large',s:'4×max-3'},{id:'se24',l:'Élévations latérales',s:'5×20'},{id:'se25',l:'Oiseau buste penché',s:'4×20'},{id:'se26',l:'Curl biceps',s:'4×15-20'}],
+    stretch:['Étirements épaules + pecs (8-10 min)']},
+  {day:'Dimanche',type:'Rando + Mobilité',
+    warmup:[],
+    exos:[{id:'se27',l:'Rando 3-4h',s:''}],
+    stretch:['Mobilité hanches (10 min)','Étirements pecs','Exercices de respiration']}
+];
+
+function sportToggle(dateKey,id){
+  if(!S.sportChecks)S.sportChecks={};
+  if(!S.sportChecks[dateKey])S.sportChecks[dateKey]={};
+  S.sportChecks[dateKey][id]=!S.sportChecks[dateKey][id];
+  save();renderSport();
+}
+function navSport(dir){sportDay=(sportDay+dir+7)%7;renderSport(dir>0?'right':'left');}
+function renderSport(dir=''){
+  if(!S.sportChecks)S.sportChecks={};
+  const todayIdx=(new Date().getDay()+6)%7;
+  const isToday=sportDay===todayIdx;
+  const dateKey=getDayDate(sportDay);
+  const checks=S.sportChecks[dateKey]||{};
+  const prog=SPORT_PROG[sportDay];
+  const animClass=dir==='right'?'day-slide':dir==='left'?'day-slide-left':'';
+
+  let h=`<div class="day-nav">
+    <button class="day-nav-btn" onclick="navSport(-1)">←</button>
+    <div class="day-nav-label${isToday?' today':''}">${prog.day}${isToday?' <span style="font-size:11px;font-weight:500;opacity:.55">· auj</span>':''}</div>
+    <button class="day-nav-btn" onclick="navSport(1)">→</button>
+  </div><div class="${animClass}">`;
+
+  if(prog.rest){
+    h+=`<div class="card" style="text-align:center;padding:32px 16px">
+      <div class="sport-type-badge">😴 ${prog.type}</div>
+      <div style="font-size:36px;margin:16px 0 10px">😴</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:8px">Jour de repos</div>
+      <div style="font-size:13px;color:var(--muted)">${prog.restNote}</div>
+    </div>`;
+  } else {
+    const warmupIds=prog.warmup.map((_,i)=>'w'+i);
+    const stretchIds=(prog.stretch||[]).map((_,i)=>'str'+i);
+    const allIds=[...warmupIds,...prog.exos.map(e=>e.id),...stretchIds];
+    const total=allIds.length;const doneCnt=allIds.filter(id=>checks[id]).length;
+    const pct=total?Math.round(doneCnt/total*100):0;
+    h+=`<div class="card gap">
+      <div><span class="sport-type-badge">💪 ${prog.type}</span></div>
+      ${prog.note?`<div style="font-family:var(--mono);font-size:10px;color:var(--orange);margin-bottom:10px">${prog.note}</div>`:''}
+      <div class="sport-prog">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${doneCnt}/${total}</span>
+        <div class="sport-prog-bar"><div class="sport-prog-fill" style="width:${pct}%"></div></div>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--accent)">${pct}%</span>
+      </div>`;
+    if(prog.warmup.length){
+      h+=`<div class="sport-section-title">🔥 Échauffement</div>`;
+      prog.warmup.forEach((w,i)=>{const id='w'+i;const d=!!checks[id];h+=`<div class="exo-row" onclick="sportToggle('${dateKey}','${id}')"><div class="exo-check ${d?'done':''}"></div><span class="exo-label ${d?'done':''}">${w}</span></div>`;});
+    }
+    h+=`<div class="sport-section-title">💪 Exercices</div>`;
+    prog.exos.forEach(e=>{const d=!!checks[e.id];h+=`<div class="exo-row" onclick="sportToggle('${dateKey}','${e.id}')"><div class="exo-check ${d?'done':''}"></div><span class="exo-label ${d?'done':''}">${e.l}</span>${e.s?`<span class="exo-sets">${e.s}</span>`:''}</div>`;});
+    if(prog.stretch&&prog.stretch.length){
+      h+=`<div class="sport-section-title">🧘 Étirements</div>`;
+      prog.stretch.forEach((s,i)=>{const id='str'+i;const d=!!checks[id];h+=`<div class="exo-row" onclick="sportToggle('${dateKey}','${id}')"><div class="exo-check ${d?'done':''}"></div><span class="exo-label ${d?'done':''}">${s}</span></div>`;});
+    }
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  document.getElementById('sport-content').innerHTML=h;
 }
 
 // ═══ INIT ═══
