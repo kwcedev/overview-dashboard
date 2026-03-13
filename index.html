@@ -1112,11 +1112,42 @@ function renderTemplateGrid(el){
   const days=DN.map((l,i)=>({key:String(i),label:l,today:i===tdow,sub:''}));
   el.innerHTML=buildTimeGrid(days,d=>S.weekTemplate[parseInt(d.key)]||[]);
 }
+let agendaWeekOffset=0;
+function navAgenda(dir){
+  agendaWeekOffset+=dir;
+  const el=document.getElementById('plan-grid-wrap');if(el)renderAgendaGrid(el);
+}
+function agendaGoToDate(val){
+  if(!val)return;
+  const picked=new Date(val+'T12:00');
+  const now=new Date();now.setHours(12,0,0,0);
+  const diff=Math.round((picked-now)/864e5);
+  agendaWeekOffset=Math.floor(diff/7);
+  const el=document.getElementById('plan-grid-wrap');if(el)renderAgendaGrid(el);
+}
 function renderAgendaGrid(el){
   const DN=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
   const days=[];
-  for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()+i);const ds=d.toISOString().slice(0,10);const dow=(d.getDay()+6)%7;days.push({key:ds,label:DN[dow],today:i===0,sub:d.getDate()+'/'+(d.getMonth()+1)});}
-  el.innerHTML=buildTimeGrid(days,d=>S.agendaEvents.filter(ev=>ev.date===d.key));
+  const base=new Date();base.setDate(base.getDate()+agendaWeekOffset*7);base.setHours(12,0,0,0);
+  for(let i=0;i<7;i++){
+    const d=new Date(base);d.setDate(d.getDate()+i);
+    const ds=d.toISOString().slice(0,10);
+    const dow=(d.getDay()+6)%7;
+    const today=new Date();today.setHours(12,0,0,0);
+    days.push({key:ds,label:DN[dow],today:d.toDateString()===today.toDateString(),sub:d.getDate()+'/'+(d.getMonth()+1)});
+    agendaSyncDay(ds);
+  }
+  const nowStr=new Date().toISOString().slice(0,10);
+  const rangeLabel=days[0].key===nowStr?'Cette semaine':`Sem. du ${days[0].sub}`;
+  const nav=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <button class="btn btn-ghost btn-sm" onclick="navAgenda(-1)">← Sem. préc.</button>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--muted);flex:1;text-align:center">${rangeLabel}</span>
+    <button class="btn btn-ghost btn-sm" onclick="navAgenda(1)">Sem. suiv. →</button>
+    <input type="date" onchange="agendaGoToDate(this.value)" title="Aller à une date" style="background:var(--glass2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;cursor:pointer">
+    ${agendaWeekOffset!==0?`<button class="btn btn-ghost btn-sm" onclick="agendaWeekOffset=0;renderAgendaGrid(document.getElementById('plan-grid-wrap'))">Auj.</button>`:''}
+  </div>`;
+  el.innerHTML=nav+buildTimeGrid(days,d=>S.agendaEvents.filter(ev=>ev.date===d.key));
+  save();
 }
 // Drag & drop
 let _dgId=null,_dgDayKey=null,_dgOffH=0;
