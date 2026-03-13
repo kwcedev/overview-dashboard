@@ -856,6 +856,7 @@ const save=()=>{
   S._ts=Date.now();
   localStorage.setItem('jtb3',JSON.stringify(S));
   if(fbReady&&fbRef){ignoreNext=true;fbRef.set(S);showSync('↑')}
+  _idbSave(S);
   scheduleGHBackup();
 };
 const td=()=>new Date().toISOString().slice(0,10);
@@ -1434,6 +1435,45 @@ function saveCfg(){
 }
 function resetAll(){if(!confirm('Supprimer toutes les données ?'))return;localStorage.removeItem('jtb3');localStorage.removeItem('jtb3_fb');location.reload()}
 
+// ═══ AUTO BACKUP (zero config) ═══
+function _idbSave(data){
+  try{
+    const req=indexedDB.open('ov_bak',1);
+    req.onupgradeneeded=e=>e.target.result.createObjectStore('snaps',{keyPath:'date'});
+    req.onsuccess=e=>{
+      const db=e.target.result;
+      const tx=db.transaction('snaps','readwrite');
+      const st=tx.objectStore('snaps');
+      st.put({date:td(),ts:Date.now(),data:JSON.stringify(data)});
+      // garder 7 jours seulement
+      const cutoff=new Date();cutoff.setDate(cutoff.getDate()-7);
+      const cut=cutoff.toISOString().slice(0,10);
+      st.openCursor().onsuccess=ev=>{
+        const cur=ev.target.result;
+        if(cur){if(cur.key<cut)cur.delete();cur.continue();}
+      };
+    };
+  }catch(e){}
+}
+function _dlBackup(){
+  try{
+    const json=JSON.stringify(S,null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='overview-backup-'+td()+'.json';
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    localStorage.setItem('jtb3_bkday',td());
+  }catch(e){}
+}
+function autoBackup(force=false){
+  _idbSave(S);
+  if(force||localStorage.getItem('jtb3_bkday')!==td())_dlBackup();
+}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)autoBackup(true);});
+
 // ═══ GITHUB BACKUP ═══
 let _ghTimer=null;
 function scheduleGHBackup(){
@@ -1754,6 +1794,7 @@ function syncAutoChecks(){
 
 // ═══ INIT ═══
 dailyReset();initFirebase();go(sessionStorage.getItem('activeView')||'home');
+setTimeout(()=>autoBackup(),4000);
 setInterval(()=>{dailyReset();r90()},60000);
 </script>
 </body>
