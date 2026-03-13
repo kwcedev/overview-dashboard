@@ -706,6 +706,19 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       </div>
     </div>
     <div class="card gap">
+      <div class="card-title">💾 Export / Import données</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Export : copie toutes tes données · Import : colle un export précédent ou depuis l'ancien domaine</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="exportData()">⬇ Exporter JSON</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-area').style.display='block'">⬆ Importer JSON</button>
+      </div>
+      <div id="import-area" style="display:none;margin-top:10px">
+        <textarea id="import-json" rows="5" style="background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:var(--r2);padding:10px 14px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;width:100%;resize:vertical;margin-bottom:8px" placeholder="Colle ici le JSON exporté depuis l'ancien domaine..."></textarea>
+        <button class="btn btn-sm" onclick="importData()">Importer et écraser</button>
+        <span id="import-status" style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:10px"></span>
+      </div>
+    </div>
+    <div class="card gap">
       <div class="card-title" style="color:var(--red)">Zone danger</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Réinitialise toutes les données.</div>
       <button class="btn btn-danger btn-sm" onclick="resetAll()">⚠ Tout réinitialiser</button>
@@ -1396,6 +1409,27 @@ function saveCfg(){
   S.revObj=parseFloat(document.getElementById('cfg-rev').value)||2000;save();renderCfg();
 }
 function resetAll(){if(!confirm('Supprimer toutes les données ?'))return;localStorage.removeItem('jtb3');localStorage.removeItem('jtb3_fb');location.reload()}
+function exportData(){
+  const json=JSON.stringify(S,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='overview-backup-'+td()+'.json';a.click();
+  URL.revokeObjectURL(url);
+}
+function importData(){
+  const raw=document.getElementById('import-json').value.trim();
+  const st=document.getElementById('import-status');
+  try{
+    const parsed=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object'){st.textContent='JSON invalide';return;}
+    Object.assign(S,parsed);
+    S._ts=Date.now();
+    localStorage.setItem('jtb3',JSON.stringify(S));
+    if(fbReady&&fbRef){ignoreNext=true;fbRef.set(S);}
+    st.textContent='✓ Importé et synchronisé';
+    setTimeout(()=>location.reload(),800);
+  }catch(e){st.textContent='Erreur : '+e.message;}
+}
 
 function saveFB(){
   const raw=document.getElementById('cfg-fb').value.trim();
