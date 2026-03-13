@@ -300,6 +300,15 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px}
 
+/* ── CHECKLIST DRAG ── */
+.ci-drag{cursor:grab;color:var(--muted2);font-size:15px;padding-right:6px;flex-shrink:0;user-select:none;-webkit-user-select:none;touch-action:none}
+.ci-drag:active{cursor:grabbing}
+.ci.dragging{opacity:.35}
+.ci.drag-over{border-top:2px solid var(--accent);margin-top:-1px}
+.ci-actions{display:flex;gap:4px;margin-left:auto;flex-shrink:0}
+.ci-btn{background:none;border:none;color:var(--muted2);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:5px;transition:all .15s;line-height:1}
+.ci-btn:hover{color:var(--text);background:var(--glass2)}
+.ci-btn.del:hover{color:var(--red);background:var(--red-bg)}
 /* ── MOBILE ── */
 @media(max-width:768px){
   .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);z-index:200;-webkit-tap-highlight-color:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(6,6,9,.97)}
@@ -697,20 +706,12 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       </div>
     </div>
     <div class="card gap">
-      <div class="card-title">📦 Backup GitHub automatique</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Crée un commit JSON à chaque modification · Historique complet sur GitHub · Récupérable à tout moment</div>
-      <div class="ev-field" style="margin-bottom:10px">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Personal Access Token <span style="color:rgba(212,255,0,.5)">(Settings → Developer settings → Tokens → repo)</span></div>
-        <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-      </div>
-      <div class="ev-field" style="margin-bottom:10px">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Repo GitHub (utilisateur/nom-repo)</div>
-        <input type="text" id="gh-repo" placeholder="mon-user/overview-backup">
-      </div>
+      <div class="card-title">☁️ Backup Firebase automatique</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Sauvegarde à <span style="color:var(--accent);font-family:var(--mono)">backups/main</span> dans ta Realtime DB · Auto toutes les 5 min · Accessible depuis la console Firebase</div>
       <div class="irow">
-        <button class="btn btn-sm" onclick="saveGHConfig()">Activer</button>
-        <button class="btn btn-ghost btn-sm" onclick="backupToGithub(true)">Tester maintenant</button>
-        <span id="gh-status" style="font-family:var(--mono);font-size:10px;color:var(--muted)"></span>
+        <button class="btn btn-ghost btn-sm" onclick="exportFirebaseBackup()">⬆ Backup maintenant</button>
+        <button class="btn btn-ghost btn-sm" onclick="importFirebaseBackup()">⬇ Restaurer backup</button>
+        <span id="fbak-status" style="font-family:var(--mono);font-size:10px;color:var(--accent)"></span>
       </div>
     </div>
     <div class="card gap">
@@ -825,7 +826,6 @@ function showSync(icon){
 
 // ═══ STATE ═══
 const DAILY=[
-  {id:'t1',label:'Sport (45 min)',done:false,cat:'corps'},
   {id:'t2',label:'Méditation 30 min',done:false,cat:'mental'},
   {id:'t3',label:'Prospecter 20 entreprises',done:false,cat:'business'},
   {id:'t4',label:'Travail agence 3h+',done:false,cat:'business'},
@@ -850,40 +850,38 @@ let S=JSON.parse(localStorage.getItem('jtb3')||'null')||{
   start90:null,poidsObj:70,revObj:2000,
   revenus:[],depenses:[],seances:[],poids:[],
   todos:null,extraTodos:[],prospects:{},clients:0,checkDate:null,_ts:0,
-  todoHistory:[],nutritionChecks:{},sportChecks:{},agendaSynced:{}
+  todoHistory:[],nutritionChecks:{},sportChecks:{},agendaSynced:{},baseRoutine:null
 };
 const save=()=>{
   S._ts=Date.now();
   localStorage.setItem('jtb3',JSON.stringify(S));
   if(fbReady&&fbRef){ignoreNext=true;fbRef.set(S);showSync('↑')}
   _idbSave(S);
-  scheduleGHBackup();
+  scheduleFirebaseBackup();
 };
 const td=()=>new Date().toISOString().slice(0,10);
 const tm=()=>td().slice(0,7);
 
+function getBaseRoutine(){
+  if(!S.baseRoutine||!S.baseRoutine.length)S.baseRoutine=DAILY.map(x=>({id:x.id,label:x.label,cat:x.cat}));
+  return S.baseRoutine;
+}
 function dailyReset(){
   const t=td();
   if(!S.todoHistory)S.todoHistory=[];
+  const base=getBaseRoutine();
   if(S.checkDate!==t){
-    // save yesterday's score before reset
-    if(S.checkDate && S.todos && S.todos.length){
+    if(S.checkDate&&S.todos&&S.todos.length){
       const done=S.todos.filter(x=>x.done).length;
       const total=S.todos.length;
-      // avoid duplicates
       if(!S.todoHistory.find(h=>h.date===S.checkDate)){
         S.todoHistory.push({date:S.checkDate,done,total});
-        // keep last 90 days only
         if(S.todoHistory.length>90)S.todoHistory=S.todoHistory.slice(-90);
       }
     }
-    S.checkDate=t;S.todos=DAILY.map(x=>({...x,done:false}));save();
+    S.checkDate=t;S.todos=base.map(x=>({...x,done:false}));save();
   } else if(!S.todos||!S.todos.length){
-    S.todos=DAILY.map(x=>({...x,done:false}));save();
-  } else {
-    const ids=S.todos.map(x=>x.id);
-    const newItems=DAILY.filter(x=>!ids.includes(x.id));
-    if(newItems.length){S.todos=[...S.todos,...newItems.map(x=>({...x,done:false}))];save();}
+    S.todos=base.map(x=>({...x,done:false}));save();
   }
 }
 
@@ -1036,32 +1034,76 @@ function renderHistory(){
 }
 
 // ═══ TODO ═══
+let _ciDragIdx=null,_ciDragList=null;
+function _ciHtml(t,i,list){
+  const isDone=t.done?'done':'';
+  const toggle=list==='todos'?`toggleTodo(${i},false)`:`toggleExtra(${i})`;
+  return `<div class="ci ${isDone}" draggable="true"
+    ondragstart="ciDragStart(event,${i},'${list}')"
+    ondragover="ciDragOver(event)"
+    ondragleave="ciDragLeave(event)"
+    ondrop="ciDrop(event,${i},'${list}')"
+    ondragend="ciDragEnd(event)">
+    <div class="ci-drag" onclick="event.stopPropagation()">⠿</div>
+    <div class="ci-box" onclick="${toggle}"></div>
+    <span class="ci-label" onclick="${toggle}">${t.label}</span>
+    <span class="ci-cat">${t.cat||''}</span>
+    <div class="ci-actions" onclick="event.stopPropagation()">
+      <button class="ci-btn" onclick="editTask(${i},'${list}')" title="Modifier">✎</button>
+      <button class="ci-btn del" onclick="delTask(${i},'${list}')" title="Supprimer">×</button>
+    </div>
+  </div>`;
+}
 function renderTodo(){
   document.getElementById('td-date').textContent=td();
-  document.getElementById('td-list').innerHTML=S.todos.map((t,i)=>`
-    <div class="ci ${t.done?'done':''}" onclick="toggleTodo(${i},false)">
-      <div class="ci-box"></div><span class="ci-label">${t.label}</span><span class="ci-cat">${t.cat||''}</span>
-    </div>`).join('');
+  document.getElementById('td-list').innerHTML=S.todos.map((t,i)=>_ciHtml(t,i,'todos')).join('');
   const done=S.todos.filter(t=>t.done).length;
   document.getElementById('td-score').textContent=`${done}/${S.todos.length} — ${Math.round(done/S.todos.length*100)||0}%`;
-  document.getElementById('td-extra').innerHTML=S.extraTodos.map((t,i)=>`
-    <div class="ci ${t.done?'done':''}">
-      <div class="ci-box" onclick="toggleExtra(${i})"></div>
-      <span class="ci-label" onclick="toggleExtra(${i})">${t.label}</span>
-      <button class="log-del" onclick="removeExtra(${i})">×</button>
-    </div>`).join('');
+  document.getElementById('td-extra').innerHTML=S.extraTodos.map((t,i)=>_ciHtml(t,i,'extra')).join('');
 }
 function toggleTodo(i,mini){S.todos[i].done=!S.todos[i].done;save();if(mini){renderMiniTodos();renderTodoGauge();renderHistory()}else{renderTodo();renderMiniTodos();renderTodoGauge();renderHistory()}}
 function toggleExtra(i){S.extraTodos[i].done=!S.extraTodos[i].done;save();renderTodo()}
-function removeExtra(i){S.extraTodos.splice(i,1);save();renderTodo()}
+function editTask(i,list){
+  const arr=list==='todos'?S.todos:S.extraTodos;
+  const cur=arr[i].label;
+  const v=prompt('Modifier la tâche :',cur);
+  if(v===null||!v.trim())return;
+  arr[i].label=v.trim();
+  if(list==='todos'){const br=S.baseRoutine&&S.baseRoutine.find(x=>x.id===arr[i].id);if(br)br.label=v.trim();}
+  save();renderTodo();renderMiniTodos();
+}
+function delTask(i,list){
+  const arr=list==='todos'?S.todos:S.extraTodos;
+  const id=arr[i].id;
+  arr.splice(i,1);
+  if(list==='todos'&&S.baseRoutine)S.baseRoutine=S.baseRoutine.filter(x=>x.id!==id);
+  save();renderTodo();renderMiniTodos();renderTodoGauge();renderHistory();
+}
 function addTodo(){
   const inp=document.getElementById('new-todo');const v=inp.value.trim();if(!v)return;
-  S.extraTodos.push({id:'e'+Date.now(),label:v,done:false});inp.value='';save();renderTodo();
+  S.extraTodos.push({id:'e'+Date.now(),label:v,done:false,cat:'business'});inp.value='';save();renderTodo();
 }
 function addRoutineTodo(){
   const inp=document.getElementById('new-routine-todo');const v=inp.value.trim();if(!v)return;
-  S.todos.push({id:'r'+Date.now(),label:v,done:false,cat:'custom'});
+  const item={id:'r'+Date.now(),label:v,done:false,cat:'custom'};
+  getBaseRoutine().push({id:item.id,label:item.label,cat:item.cat});
+  S.todos.push(item);
   inp.value='';save();renderTodo();renderMiniTodos();renderTodoGauge();renderHistory();
+}
+// Drag & drop checklist
+function ciDragStart(e,idx,list){_ciDragIdx=idx;_ciDragList=list;e.dataTransfer.effectAllowed='move';setTimeout(()=>e.target.classList.add('dragging'),0);}
+function ciDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';e.currentTarget.classList.add('drag-over');}
+function ciDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function ciDragEnd(e){e.target.classList.remove('dragging');document.querySelectorAll('.ci').forEach(el=>el.classList.remove('drag-over'));}
+function ciDrop(e,targetIdx,list){
+  e.preventDefault();e.currentTarget.classList.remove('drag-over');
+  if(_ciDragIdx===null||_ciDragIdx===targetIdx||_ciDragList!==list)return;
+  const arr=list==='todos'?S.todos:S.extraTodos;
+  const [moved]=arr.splice(_ciDragIdx,1);arr.splice(targetIdx,0,moved);
+  if(list==='todos'&&S.baseRoutine){
+    const [mbr]=S.baseRoutine.splice(_ciDragIdx,1);S.baseRoutine.splice(targetIdx,0,mbr);
+  }
+  _ciDragIdx=null;save();renderTodo();
 }
 
 // ═══ BUSINESS ═══
@@ -1421,12 +1463,6 @@ function renderCfg(){
   const fb=localStorage.getItem('jtb3_fb');
   if(fb)document.getElementById('cfg-fb').value=fb;
   document.getElementById('fb-status').textContent=fbReady?'✓ Connecté':'Non connecté';
-  const gh=JSON.parse(localStorage.getItem('jtb3_gh')||'null');
-  if(gh){
-    if(gh.token)document.getElementById('gh-token').value=gh.token;
-    if(gh.repo)document.getElementById('gh-repo').value=gh.repo;
-    document.getElementById('gh-status').textContent='✓ Configuré';
-  }
 }
 function saveStart(){const v=document.getElementById('cfg-start').value;if(!v)return;S.start90=v;save();r90();renderCfg()}
 function saveCfg(){
@@ -1435,86 +1471,48 @@ function saveCfg(){
 }
 function resetAll(){if(!confirm('Supprimer toutes les données ?'))return;localStorage.removeItem('jtb3');localStorage.removeItem('jtb3_fb');location.reload()}
 
-// ═══ AUTO BACKUP (zero config) ═══
+// ═══ BACKUP LOCAL (IndexedDB) ═══
 function _idbSave(data){
   try{
     const req=indexedDB.open('ov_bak',1);
     req.onupgradeneeded=e=>e.target.result.createObjectStore('snaps',{keyPath:'date'});
     req.onsuccess=e=>{
-      const db=e.target.result;
-      const tx=db.transaction('snaps','readwrite');
-      const st=tx.objectStore('snaps');
+      const db=e.target.result;const tx=db.transaction('snaps','readwrite');const st=tx.objectStore('snaps');
       st.put({date:td(),ts:Date.now(),data:JSON.stringify(data)});
-      // garder 7 jours seulement
-      const cutoff=new Date();cutoff.setDate(cutoff.getDate()-7);
-      const cut=cutoff.toISOString().slice(0,10);
-      st.openCursor().onsuccess=ev=>{
-        const cur=ev.target.result;
-        if(cur){if(cur.key<cut)cur.delete();cur.continue();}
-      };
+      const cutoff=new Date();cutoff.setDate(cutoff.getDate()-7);const cut=cutoff.toISOString().slice(0,10);
+      st.openCursor().onsuccess=ev=>{const cur=ev.target.result;if(cur){if(cur.key<cut)cur.delete();cur.continue();}};
     };
   }catch(e){}
 }
-function _dlBackup(){
-  try{
-    const json=JSON.stringify(S,null,2);
-    const blob=new Blob([json],{type:'application/json'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download='overview-backup-'+td()+'.json';
-    document.body.appendChild(a);a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    localStorage.setItem('jtb3_bkday',td());
-  }catch(e){}
-}
-function autoBackup(force=false){
-  _idbSave(S);
-  if(force||localStorage.getItem('jtb3_bkday')!==td())_dlBackup();
-}
-document.addEventListener('visibilitychange',()=>{if(document.hidden)autoBackup(true);});
 
-// ═══ GITHUB BACKUP ═══
-let _ghTimer=null;
-function scheduleGHBackup(){
-  clearTimeout(_ghTimer);
-  _ghTimer=setTimeout(()=>backupToGithub(),3*60*1000);
+// ═══ FIREBASE BACKUP (backups/main) ═══
+let _fbakTimer=null;
+function scheduleFirebaseBackup(){
+  clearTimeout(_fbakTimer);
+  _fbakTimer=setTimeout(pushFirebaseBackup,5*60*1000);
 }
-function saveGHConfig(){
-  const token=document.getElementById('gh-token').value.trim();
-  const repo=document.getElementById('gh-repo').value.trim();
-  const st=document.getElementById('gh-status');
-  if(!token||!repo){st.textContent='Token et repo requis';return;}
-  localStorage.setItem('jtb3_gh',JSON.stringify({token,repo}));
-  st.textContent='Sauvegardé — test en cours...';
-  backupToGithub(true);
+function pushFirebaseBackup(){
+  if(!fbReady||!fbRef)return;
+  try{firebase.database().ref('backups/main').set({...S,_bakTs:Date.now()});}catch(e){}
 }
-async function backupToGithub(manual=false){
-  const gh=JSON.parse(localStorage.getItem('jtb3_gh')||'null');
-  if(!gh||!gh.token||!gh.repo)return;
-  const ghEl=document.getElementById('gh-status');
-  const done=S.todos?S.todos.filter(t=>t.done).length:0;
-  const total=S.todos?S.todos.length:0;
-  const now=new Date();
-  const msg=`backup ${now.toISOString().slice(0,16).replace('T',' ')} — ${done}/${total} tâches`;
-  const content=btoa(unescape(encodeURIComponent(JSON.stringify(S,null,2))));
-  const path='overview-backup.json';
-  const url=`https://api.github.com/repos/${gh.repo}/contents/${path}`;
-  const headers={'Authorization':'token '+gh.token,'Content-Type':'application/json','Accept':'application/vnd.github+json'};
-  try{
-    let sha='';
-    const cur=await fetch(url,{headers});
-    if(cur.ok){const d=await cur.json();sha=d.sha||'';}
-    const res=await fetch(url,{method:'PUT',headers,body:JSON.stringify({message:msg,content,...(sha?{sha}:{})})});
-    if(res.ok){
-      if(ghEl)ghEl.textContent=`✓ ${now.toLocaleTimeString('fr')}`;
-    }else{
-      const err=await res.json().catch(()=>({}));
-      if(ghEl)ghEl.textContent='✗ '+(err.message||'Erreur GitHub');
-    }
-  }catch(e){if(ghEl)ghEl.textContent='✗ '+e.message;}
+function importFirebaseBackup(){
+  if(!fbReady){alert('Firebase non connecté — configure Firebase dans Config d\'abord.');return;}
+  firebase.database().ref('backups/main').once('value').then(snap=>{
+    const data=snap.val();
+    if(!data){alert('Aucun backup trouvé à backups/main dans Firebase.');return;}
+    if(!confirm('Écraser les données actuelles avec le backup Firebase ?'))return;
+    Object.assign(S,data);S._ts=Date.now();
+    localStorage.setItem('jtb3',JSON.stringify(S));
+    if(fbReady&&fbRef){ignoreNext=true;fbRef.set(S);}
+    setTimeout(()=>location.reload(),300);
+  }).catch(e=>alert('Erreur lecture backup : '+e.message));
 }
-document.addEventListener('visibilitychange',()=>{if(document.hidden)backupToGithub();});
+function exportFirebaseBackup(){
+  if(!fbReady){alert('Firebase non connecté.');return;}
+  pushFirebaseBackup();
+  const st=document.getElementById('fbak-status');
+  if(st){st.textContent='✓ Backup envoyé à backups/main';setTimeout(()=>{if(st)st.textContent='';},3000);}
+}
 function exportData(){
   const json=JSON.stringify(S,null,2);
   const blob=new Blob([json],{type:'application/json'});
@@ -1794,7 +1792,6 @@ function syncAutoChecks(){
 
 // ═══ INIT ═══
 dailyReset();initFirebase();go(sessionStorage.getItem('activeView')||'home');
-setTimeout(()=>autoBackup(),4000);
 setInterval(()=>{dailyReset();r90()},60000);
 </script>
 </body>
