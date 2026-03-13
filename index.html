@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -720,39 +721,70 @@ let fbReady=false;
 let fbRef=null;
 let ignoreNext=false;
 
+function reRenderActive(){
+  const active=document.querySelector('.view.active');
+  if(active){
+    const id=active.id.replace('view-','');
+    const r={home:renderHome,todo:renderTodo,business:renderBiz,planning:renderPlan,corps:renderCorps,nutrition:renderNutrition,sport:renderSport,cfg:renderCfg};
+    if(r[id])r[id]();
+  }
+}
+
 function initFirebase(){
   const cfg=JSON.parse(localStorage.getItem('jtb3_fb')||'null');
   if(!cfg||!cfg.apiKey)return;
   try{
     if(!firebase.apps.length)firebase.initializeApp(cfg);
-    const uid='main';
-    fbRef=firebase.database().ref('dashboards/'+uid);
+
+    // Auth anonyme : satisfait les règles Firebase "auth != null" sans login utilisateur
+    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(()=>{
+      return firebase.auth().signInAnonymously();
+    }).then(()=>{
+      _connectDB();
+    }).catch(e=>{
+      // Auth non activée dans Firebase → connexion DB directe
+      console.warn('Auth anonyme indisponible, connexion DB directe:',e.code);
+      _connectDB();
+    });
+  }catch(e){console.error('Firebase init error:',e)}
+}
+
+function _connectDB(){
+  try{
+    fbRef=firebase.database().ref('dashboards/main');
     fbReady=true;
-    // listen for remote changes
+    let firstRead=true;
     fbRef.on('value',snap=>{
       if(ignoreNext){ignoreNext=false;return}
       const remote=snap.val();
+      if(firstRead){
+        firstRead=false;
+        if(!remote){
+          // Firebase vide → push local si on a des données
+          if(S._ts>0){ignoreNext=true;S._ts=Date.now();fbRef.set(S);showSync('↑');}
+          return;
+        }
+        // Firebase a des données : prendre Firebase si égal ou plus récent
+        if(!S._ts||remote._ts>=S._ts){
+          Object.assign(S,remote);
+          localStorage.setItem('jtb3',JSON.stringify(S));
+          dailyReset();reRenderActive();showSync('↓');
+        } else {
+          // Local plus récent → push vers Firebase
+          ignoreNext=true;S._ts=Date.now();fbRef.set(S);showSync('↑');
+        }
+        return;
+      }
+      // Lectures suivantes : merge classique
       if(!remote)return;
-      // merge: take remote if its timestamp is newer
-      if(remote._ts && (!S._ts || remote._ts > S._ts)){
+      if(remote._ts&&(!S._ts||remote._ts>S._ts)){
         Object.assign(S,remote);
         localStorage.setItem('jtb3',JSON.stringify(S));
-        dailyReset();
-        // re-render current active view
-        const active=document.querySelector('.view.active');
-        if(active){
-          const id=active.id.replace('view-','');
-          const r={home:renderHome,todo:renderTodo,business:renderBiz,planning:renderPlan,corps:renderCorps,nutrition:renderNutrition,sport:renderSport,cfg:renderCfg};
-          if(r[id])r[id]();
-        }
-        showSync('↓');
+        dailyReset();reRenderActive();showSync('↓');
       }
     });
     showSync('✓');
-    // push current state on first connect
-    S._ts=Date.now();
-    fbRef.set(S);
-  }catch(e){console.error('Firebase init error:',e)}
+  }catch(e){console.error('Firebase DB error:',e)}
 }
 
 function showSync(icon){
