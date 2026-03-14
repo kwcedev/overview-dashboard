@@ -745,6 +745,11 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       </div>
     </div>
     <div class="card gap">
+      <div class="card-title">🗂 Backups journaliers locaux</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Sauvegarde auto de chaque jour avant le reset minuit · 7 derniers jours</div>
+      <div id="cfg-bk-list"></div>
+    </div>
+    <div class="card gap">
       <div class="card-title">💾 Export / Import données</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Export : copie toutes tes données · Import : colle un export précédent ou depuis l'ancien domaine</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -929,7 +934,12 @@ function dailyReset(){
   if(!S.todoHistory)S.todoHistory=[];
   const base=getBaseRoutine();
   if(S.checkDate!==t){
+    // Backup local avant le reset (garde 7 jours)
     if(S.checkDate&&S.todos&&S.todos.length){
+      try{
+        localStorage.setItem('jtb3_bk_'+S.checkDate,JSON.stringify({date:S.checkDate,todos:S.todos,savedAt:new Date().toISOString()}));
+        for(let i=8;i<30;i++){const d=new Date();d.setDate(d.getDate()-i);localStorage.removeItem('jtb3_bk_'+d.toISOString().slice(0,10));}
+      }catch(e){}
       const done=S.todos.filter(x=>x.done).length;
       const total=S.todos.length;
       if(!S.todoHistory.find(h=>h.date===S.checkDate)){
@@ -938,12 +948,9 @@ function dailyReset(){
       }
     }
     S.checkDate=t;S.todos=buildTodosForDay(base,t);save();
-  } else {
-    // Même jour : re-filtrer selon le planning en préservant l'état coché
-    const filtered=buildTodosForDay(base,t);
-    const doneMap=Object.fromEntries((S.todos||[]).map(x=>[x.id,x.done]));
-    S.todos=filtered.map(x=>({...x,done:!!doneMap[x.id]}));
-    save();
+  } else if(!S.todos||!S.todos.length){
+    // Seulement si vide — évite le rebuild toutes les 60s
+    S.todos=buildTodosForDay(base,t);save();
   }
 }
 
@@ -1608,6 +1615,7 @@ function renderCfg(){
   const fb=localStorage.getItem('jtb3_fb');
   if(fb)document.getElementById('cfg-fb').value=fb;
   document.getElementById('fb-status').textContent=fbReady?'✓ Connecté':'Non connecté';
+  renderDailyBackups();
 }
 function saveStart(){const v=document.getElementById('cfg-start').value;if(!v)return;S.start90=v;save();r90();renderCfg()}
 function saveCfg(){
@@ -1657,6 +1665,45 @@ function exportFirebaseBackup(){
   pushFirebaseBackup();
   const st=document.getElementById('fbak-status');
   if(st){st.textContent='✓ Backup envoyé à backups/main';setTimeout(()=>{if(st)st.textContent='';},3000);}
+}
+function renderDailyBackups(){
+  const el=document.getElementById('cfg-bk-list');if(!el)return;
+  const keys=[];
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('jtb3_bk_'))keys.push(k);}
+  keys.sort().reverse();
+  if(!keys.length){el.innerHTML='<div style="color:var(--muted);font-size:12px">Aucun backup local — ils s\'accumulent à partir de minuit.</div>';return;}
+  el.innerHTML=keys.map(k=>{
+    const date=k.replace('jtb3_bk_','');
+    let info='';
+    try{const b=JSON.parse(localStorage.getItem(k));const done=b.todos?b.todos.filter(t=>t.done).length:0;const total=b.todos?b.todos.length:0;info=`${done}/${total} tâches · sauvé ${b.savedAt?b.savedAt.slice(11,16):'?'}`;}catch(e){}
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div><div style="font-size:13px;font-weight:700">${date}</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${info}</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="restoreDailyBackup('${k}')">Restaurer todos</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportDailyBackup('${k}')">⬇ JSON</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function restoreDailyBackup(key){
+  if(!confirm('Restaurer les todos de ce jour dans l\'historique ? (ne touche pas aux données actuelles)'))return;
+  try{
+    const b=JSON.parse(localStorage.getItem(key));
+    if(!b||!b.todos)return;
+    if(!S.todoHistory)S.todoHistory=[];
+    const existing=S.todoHistory.find(h=>h.date===b.date);
+    const entry={date:b.date,done:b.todos.filter(t=>t.done).length,total:b.todos.length,items:b.todos.map(t=>({id:t.id,label:t.label,cat:t.cat,done:t.done}))};
+    if(existing)Object.assign(existing,entry);
+    else S.todoHistory.push(entry);
+    save();alert('✓ Todos du '+b.date+' restaurés dans l\'historique.');renderCfg();
+  }catch(e){alert('Erreur : '+e.message);}
+}
+function exportDailyBackup(key){
+  const raw=localStorage.getItem(key);if(!raw)return;
+  const blob=new Blob([raw],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=key+'.json';a.click();
+  URL.revokeObjectURL(url);
 }
 function exportData(){
   const json=JSON.stringify(S,null,2);
