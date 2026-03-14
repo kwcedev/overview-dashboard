@@ -881,15 +881,23 @@ function getBaseRoutine(){
 function buildTodosForDay(base,dateStr){
   const dailyMap=Object.fromEntries(DAILY.map(d=>[d.id,d]));
   const dow=(new Date(dateStr+'T12:00').getDay()+6)%7;
-  const tmplEvs=(S.weekTemplate&&Array.isArray(S.weekTemplate)&&S.weekTemplate[dow])||[];
+  // Lire weekTemplate depuis S (chargé depuis localStorage), ou depuis DEF_TMPL si absent
+  const tmpl=S.weekTemplate&&Array.isArray(S.weekTemplate)&&S.weekTemplate.length===7
+    ?S.weekTemplate
+    :(typeof DEF_TMPL!=='undefined'?DEF_TMPL:null);
+  const tmplEvs=(tmpl&&tmpl[dow])||[];
   const agEvs=(S.agendaEvents||[]).filter(ev=>ev.date===dateStr);
-  const allEvLabels=[...tmplEvs,...agEvs].map(ev=>ev.label.toLowerCase());
-  const hasSchedule=allEvLabels.length>0;
+  // N'utiliser que les événements du template (pas les agenda auto-synced depuis template)
+  const allEvLabels=[...tmplEvs,...agEvs.filter(ev=>!ev.fromTmpl)].map(ev=>ev.label.toLowerCase());
+  const hasSchedule=allEvLabels.length>0||(tmplEvs.length>0);
+  // Si le template du jour existe, filtrer. Sinon tout afficher.
+  const tmplLabels=tmplEvs.map(ev=>ev.label.toLowerCase());
+  const hasTmpl=tmplEvs.length>0;
   return base.map(x=>{
     const daily=dailyMap[x.id];
-    if(daily&&daily.scheduleTag&&hasSchedule){
+    if(daily&&daily.scheduleTag&&hasTmpl){
       const tag=daily.scheduleTag.toLowerCase();
-      if(!allEvLabels.some(l=>l.includes(tag)))return null;
+      if(!tmplLabels.some(l=>l.includes(tag)))return null;
     }
     return {...x,done:false};
   }).filter(Boolean);
@@ -908,8 +916,12 @@ function dailyReset(){
       }
     }
     S.checkDate=t;S.todos=buildTodosForDay(base,t);save();
-  } else if(!S.todos||!S.todos.length){
-    S.todos=buildTodosForDay(base,t);save();
+  } else {
+    // Même jour : re-filtrer selon le planning en préservant l'état coché
+    const filtered=buildTodosForDay(base,t);
+    const doneMap=Object.fromEntries((S.todos||[]).map(x=>[x.id,x.done]));
+    S.todos=filtered.map(x=>({...x,done:!!doneMap[x.id]}));
+    save();
   }
 }
 
