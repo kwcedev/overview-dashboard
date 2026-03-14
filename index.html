@@ -321,7 +321,13 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   .g3{grid-template-columns:1fr 1fr}
   html,body{overflow:auto}
   .app{height:auto;min-height:100vh;flex-direction:column;overflow:visible}
-  .main{overflow:visible}
+  .main{overflow:visible;will-change:auto;-webkit-overflow-scrolling:auto}
+  /* Désactiver les animations/filtres lourds sur Safari mobile */
+  .orb{animation:none;filter:none;opacity:0}
+  .bg-grain{display:none}
+  .card{transition:none}
+  .card:hover{background:rgba(12,12,20,.65);border-color:var(--border)}
+  @keyframes viewIn{from{opacity:1;transform:none}to{opacity:1;transform:none}}
   .tg-mob-wrap .tg-outer{max-height:none;overflow:visible;border-radius:var(--r);border:1px solid var(--border)}
   .tg-mob-wrap .tg{min-width:0}
   .tg-mob-wrap .tg-day-col{min-width:0;flex:1}
