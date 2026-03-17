@@ -407,6 +407,13 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 </head>
 <body>
 
+<!-- LOADING OVERLAY -->
+<div id="loading-overlay" style="position:fixed;inset:0;z-index:9999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.1);border-top:3px solid #c8ee00;border-radius:50%;animation:spin .8s linear infinite"></div>
+  <div style="font-family:'Fira Code',monospace;font-size:12px;color:rgba(255,255,255,.5)">Sync Firebase...</div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
 <div class="bg-canvas"><div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div></div>
 <div class="bg-grain"></div>
 
@@ -426,6 +433,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <button class="nav-item" onclick="go('sport',this)"><span class="nav-icon">🏋</span>Sport</button>
     <button class="nav-item" onclick="go('corps',this)"><span class="nav-icon">💪</span>Corps</button>
     <button class="nav-item" onclick="go('business',this)"><span class="nav-icon">💼</span>Business</button>
+    <button class="nav-item" onclick="go('journal',this)"><span class="nav-icon">📖</span>Journal</button>
     <button class="nav-item" onclick="go('cfg',this)"><span class="nav-icon">⚙</span>Config</button>
   </nav>
   <div class="sidebar-footer">
@@ -843,6 +851,15 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       </div>
     </div>
     <div class="card gap">
+      <div class="card-title">📸 Snapshots journaliers Firebase</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Chaque jour est automatiquement sauvé à <span style="color:var(--accent);font-family:var(--mono)">snapshots/YYYY-MM-DD</span> · Indestructible · Restaure n'importe quel jour passé</div>
+      <div class="irow" style="flex-wrap:wrap;gap:8px">
+        <input type="date" id="cfg-snapshot-date" style="background:var(--glass);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 12px;border-radius:8px">
+        <button class="btn btn-ghost btn-sm" onclick="restoreFirebaseSnapshot()">📸 Restaurer ce jour</button>
+        <span id="snap-status" style="font-family:var(--mono);font-size:10px;color:var(--muted)"></span>
+      </div>
+    </div>
+    <div class="card gap">
       <div class="card-title">☁️ Backup Firebase automatique</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Sauvegarde à <span style="color:var(--accent);font-family:var(--mono)">backups/main</span> dans ta Realtime DB · Auto toutes les 5 min · Accessible depuis la console Firebase</div>
       <div class="irow">
@@ -907,6 +924,23 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     </div>
   </div>
 
+  <!-- ═══ JOURNAL ═══ -->
+  <div class="view" id="view-journal">
+    <div class="ph">
+      <div class="ph-title">📖 Journal</div>
+      <div class="ph-sub">Retrouve n'importe quel jour passé</div>
+    </div>
+    <div class="day-nav">
+      <button class="day-nav-btn" onclick="navJournal(-1)">←</button>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <input type="date" id="journal-picker" onchange="jumpJournal(this.value)" style="background:var(--glass);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:8px;cursor:pointer">
+        <div class="day-nav-label" id="journal-label">—</div>
+      </div>
+      <button class="day-nav-btn" onclick="navJournal(1)">→</button>
+    </div>
+    <div id="journal-content"></div>
+  </div>
+
 </div>
 </div>
 
@@ -949,11 +983,26 @@ function reRenderActive(){
   }
 }
 
+// ═══ FIREBASE CONFIG (HARDCODÉ) ═══
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyAczqwgKfWy7OaBAtcRhnzuTprKUpxLV3s",
+  authDomain:"upscale-6a307.firebaseapp.com",
+  databaseURL:"https://upscale-6a307-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"upscale-6a307",
+  storageBucket:"upscale-6a307.firebasestorage.app",
+  messagingSenderId:"987300067259",
+  appId:"1:987300067259:web:7f64ae4c8677e7ff87f69e"
+};
+
 function initFirebase(){
-  const cfg=JSON.parse(localStorage.getItem('jtb3_fb')||'null');
-  if(!cfg||!cfg.apiKey)return;
+  // Vérifier que Firebase SDK est chargé
+  if(typeof firebase === 'undefined'){
+    console.warn('Firebase SDK pas encore chargé, retry dans 500ms...');
+    setTimeout(initFirebase, 500);
+    return;
+  }
   try{
-    if(!firebase.apps.length)firebase.initializeApp(cfg);
+    if(!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);
 
     // Auth anonyme : satisfait les règles Firebase "auth != null" sans login utilisateur
     firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(()=>{
@@ -998,16 +1047,35 @@ function _connectDB(){
     fbRef=firebase.database().ref('dashboards/main');
     fbReady=true;
     let firstRead=true;
+    
+    // Auto-restore si localStorage vide
+    const localEmpty=!localStorage.getItem('jtb3')||S._ts===0;
+    
     fbRef.on('value',snap=>{
       if(ignoreNext){ignoreNext=false;return}
       const remote=snap.val();
       if(firstRead){
         firstRead=false;
+        
+        // Fermer l'overlay de chargement si présent
+        const overlay=document.getElementById('loading-overlay');
+        if(overlay)overlay.style.display='none';
+        
         if(!remote){
           // Firebase vide → push local si on a des données
           if(S._ts>0){ignoreNext=true;S._ts=Date.now();fbRef.set(S);showSync('↑');}
           return;
         }
+        
+        // AUTO-RESTORE : si local vide et Firebase a des données
+        if(localEmpty&&remote._ts){
+          console.log('Auto-restore depuis Firebase');
+          Object.assign(S,remote);
+          try{localStorage.setItem('jtb3',JSON.stringify(S));}catch(e){}
+          dailyReset();reRenderActive();showSync('↓ restored');
+          return;
+        }
+        
         // Firebase a des données : merger intelligemment sans jamais écraser
         if(!S._ts||remote._ts>=S._ts){
           safeMerge(S,remote);
@@ -1059,12 +1127,144 @@ const DAILY=[
   {id:'t18',label:'Nutrition complète ✓',done:false,cat:'nutrition'},
 ];
 
-let S=JSON.parse(localStorage.getItem('jtb3')||'null')||{
-  start90:null,poidsObj:70,revObj:2000,
-  revenus:[],depenses:[],seances:[],poids:[],
-  todos:null,extraTodos:[],prospects:{},clients:0,checkDate:null,_ts:0,
-  todoHistory:[],nutritionChecks:{},sportChecks:{},agendaSynced:{},agendaExclusions:{},baseRoutine:null
+// ═══ DONNÉES INITIALES (backup 15 mars intégré) ═══
+const DEFAULT_STATE={
+  start90:"2026-03-13",
+  poidsObj:70,
+  revObj:2000,
+  revenus:[
+    {date:"2026-03-13",label:"Sandrine",val:15},
+    {date:"2026-03-13",label:"Bitstack",val:15},
+    {date:"2026-03-13",label:"N",val:2},
+    {date:"2026-03-14",label:"Joelle",val:15}
+  ],
+  depenses:[
+    {date:"2026-03-13",label:"Claude",val:20},
+    {date:"2026-03-13",label:"Api claude",val:6},
+    {date:"2026-03-13",label:"Api openAI",val:6}
+  ],
+  seances:[
+    {date:"2026-03-13",type:"Circuit"},
+    {date:"2026-03-14",type:"Pump"}
+  ],
+  poids:[{date:"2026-03-15",val:71}],
+  todos:null,
+  extraTodos:[],
+  prospects:{},
+  clients:0,
+  checkDate:null,
+  _ts:0,
+  todoHistory:[
+    {date:"2026-03-13",done:16,total:19,lifeScore:84,items:[
+      {id:"t2",label:"Méditation 30 min",cat:"mental",done:true},
+      {id:"t3",label:"Prospecter 20 entreprises",cat:"business",done:true},
+      {id:"t7",label:"2L eau minimum",cat:"corps",done:true},
+      {id:"t8",label:"Lumière du jour 15 min",cat:"corps",done:true},
+      {id:"t9",label:"Lecture 30 min",cat:"mental",done:true},
+      {id:"t10",label:"Couché avant minuit",cat:"mental",done:true},
+      {id:"t11",label:"No fap",cat:"discipline",done:true},
+      {id:"t12",label:"No Sofia",cat:"discipline",done:true},
+      {id:"t13",label:"No doomscroll",cat:"discipline",done:true},
+      {id:"t19",label:"No smoke",cat:"discipline",done:true},
+      {id:"t14",label:"Créatine",cat:"corps",done:true},
+      {id:"t15",label:"Whey",cat:"corps",done:true},
+      {id:"t16",label:"Oméga 3",cat:"corps",done:true},
+      {id:"t17",label:"Sport du jour ✓",cat:"sport",done:true},
+      {id:"t18",label:"Nutrition complète ✓",cat:"nutrition",done:true}
+    ]},
+    {date:"2026-03-14",done:11,total:15,lifeScore:73,items:[
+      {id:"t2",label:"Méditation 30 min",cat:"mental",done:true},
+      {id:"t3",label:"Prospecter 20 entreprises",cat:"business",done:false},
+      {id:"t7",label:"2L eau minimum",cat:"corps",done:true},
+      {id:"t8",label:"Lumière du jour 15 min",cat:"corps",done:true},
+      {id:"t9",label:"Lecture 30 min",cat:"mental",done:false},
+      {id:"t10",label:"Couché avant 0h45",cat:"mental",done:false},
+      {id:"t11",label:"No fap",cat:"discipline",done:true},
+      {id:"t12",label:"No Sofia",cat:"discipline",done:false},
+      {id:"t13",label:"No doomscroll",cat:"discipline",done:true},
+      {id:"t19",label:"No smoke",cat:"discipline",done:true},
+      {id:"t14",label:"Créatine",cat:"corps",done:true},
+      {id:"t15",label:"Whey",cat:"corps",done:true},
+      {id:"t16",label:"Oméga 3",cat:"corps",done:true},
+      {id:"t17",label:"Sport du jour ✓",cat:"sport",done:true},
+      {id:"t18",label:"Nutrition complète ✓",cat:"nutrition",done:true}
+    ]},
+    {date:"2026-03-15",done:9,total:15,lifeScore:60,items:[
+      {id:"t2",label:"Méditation 30 min",cat:"mental",done:false},
+      {id:"t3",label:"Prospecter 20 entreprises",cat:"business",done:false},
+      {id:"t7",label:"2L eau minimum",cat:"corps",done:true},
+      {id:"t8",label:"Lumière du jour 15 min",cat:"corps",done:true},
+      {id:"t9",label:"Lecture 30 min",cat:"mental",done:true},
+      {id:"t10",label:"Couché avant minuit",cat:"mental",done:false},
+      {id:"t11",label:"No fap",cat:"discipline",done:true},
+      {id:"t12",label:"No Sofia",cat:"discipline",done:true},
+      {id:"t13",label:"No doomscroll",cat:"discipline",done:false},
+      {id:"t19",label:"No smoke",cat:"discipline",done:false},
+      {id:"t14",label:"Créatine",cat:"corps",done:true},
+      {id:"t15",label:"Whey",cat:"corps",done:true},
+      {id:"t16",label:"Oméga 3",cat:"corps",done:false},
+      {id:"t17",label:"Sport du jour ✓",cat:"sport",done:true},
+      {id:"t18",label:"Nutrition complète ✓",cat:"nutrition",done:true}
+    ]},
+    {date:"2026-03-16",done:0,total:15,lifeScore:0,items:[
+      {id:"t2",label:"Méditation 30 min",cat:"mental",done:false},
+      {id:"t3",label:"Prospecter 20 entreprises",cat:"business",done:false},
+      {id:"t7",label:"2L eau minimum",cat:"corps",done:false},
+      {id:"t8",label:"Lumière du jour 15 min",cat:"corps",done:false},
+      {id:"t9",label:"Lecture 30 min",cat:"mental",done:false},
+      {id:"t10",label:"Couché avant minuit",cat:"mental",done:false},
+      {id:"t11",label:"No fap",cat:"discipline",done:false},
+      {id:"t12",label:"No Sofia",cat:"discipline",done:false},
+      {id:"t13",label:"No doomscroll",cat:"discipline",done:false},
+      {id:"t19",label:"No smoke",cat:"discipline",done:false},
+      {id:"t14",label:"Créatine",cat:"corps",done:false},
+      {id:"t15",label:"Whey",cat:"corps",done:false},
+      {id:"t16",label:"Oméga 3",cat:"corps",done:false},
+      {id:"t17",label:"Sport du jour ✓",cat:"sport",done:false},
+      {id:"t18",label:"Nutrition complète ✓",cat:"nutrition",done:false}
+    ]}
+  ],
+  nutritionChecks:{
+    "2026-03-13":{breakfast:0,lunch:0,snack:1,dinner:0},
+    "2026-03-14":{breakfast:0,lunch:0,snack:1,dinner:1},
+    "2026-03-15":{breakfast:0,lunch:true,snack:1,dinner:0}
+  },
+  sportChecks:{
+    "2026-03-13":{"w0":true,"w1":true,"w2":true,"w3":true,"w4":true,"se18-t1":true,"se18-t2":true,"se18-t3":true,"se18-t4":true,"se19-t1":true,"se19-t2":true,"se19-t3":true,"se19-t4":true,"se20-t1":true,"se20-t2":true,"se20-t3":true,"se20-t4":true,"se21-t1":true,"se21-t2":true,"se21-t3":true,"se21-t4":true,"se22-t1":true,"se22-t2":true,"se22-t3":true,"se22-t4":true,"rest-t1":true,"rest-t2":true,"rest-t3":true,"rest-t4":true,"str0":true,"str1":true,"str2":true,"str3":true,"str4":true},
+    "2026-03-14":{"w0":true,"w1":true,"w2":true,"w3":true,"w4":true,"se23-t1":true,"se23-t2":true,"se23-t3":true,"se23-t4":true,"se24-t1":true,"se24-t2":true,"se24-t3":true,"se24-t4":true,"se25-t1":true,"se25-t2":true,"se25-t3":true,"se25-t4":true,"se26-t1":true,"se26-t2":true,"se26-t3":true,"se26-t4":true,"rest-t1":true,"rest-t2":true,"rest-t3":true,"rest-t4":true,"str0":true,"str1":true,"str2":true,"str3":true,"str4":true},
+    "2026-03-15":{"w0":true,"w1":true,"w2":true,"w3":true,"se27":true,"str0":true,"str1":true,"str2":true,"str3":true,"str4":true,"str5":true}
+  },
+  agendaSynced:{},
+  agendaExclusions:{},
+  baseRoutine:null
 };
+
+let S=JSON.parse(localStorage.getItem('jtb3')||'null');
+// Si pas de données locales OU données vides, utiliser le backup
+if(!S||!S._ts||S._ts===0){
+  S={...DEFAULT_STATE,_ts:Date.now()};
+} else {
+  // Fusionner l'historique manquant du backup
+  if(!S.todoHistory)S.todoHistory=[];
+  DEFAULT_STATE.todoHistory.forEach(dh=>{
+    if(!S.todoHistory.find(h=>h.date===dh.date)){
+      S.todoHistory.push(dh);
+    }
+  });
+  // S'assurer que start90 est défini
+  if(!S.start90)S.start90=DEFAULT_STATE.start90;
+  // Fusionner nutritionChecks manquants
+  if(!S.nutritionChecks)S.nutritionChecks={};
+  Object.keys(DEFAULT_STATE.nutritionChecks).forEach(k=>{
+    if(!S.nutritionChecks[k])S.nutritionChecks[k]=DEFAULT_STATE.nutritionChecks[k];
+  });
+  // Fusionner sportChecks manquants
+  if(!S.sportChecks)S.sportChecks={};
+  Object.keys(DEFAULT_STATE.sportChecks).forEach(k=>{
+    if(!S.sportChecks[k])S.sportChecks[k]=DEFAULT_STATE.sportChecks[k];
+  });
+}
+localStorage.setItem('jtb3',JSON.stringify(S));
 const save=()=>{
   S._ts=Date.now();
   try{
@@ -1073,7 +1273,12 @@ const save=()=>{
     console.error('localStorage save failed:',e);
     alert('⚠️ Erreur de sauvegarde ! Espace insuffisant. Exporte tes données depuis Config.');
   }
-  if(fbReady&&fbRef){ignoreNext=true;fbRef.set(S);showSync('↑')}
+  if(fbReady&&fbRef&&typeof firebase!=='undefined'){
+    ignoreNext=true;fbRef.set(S);showSync('↑');
+    // Snapshot journalier indestructible
+    const today=td();
+    try{firebase.database().ref('snapshots/'+today).set({...S,_snapTs:Date.now()});}catch(e){}
+  }
   _idbSave(S);
   scheduleFirebaseBackup();
   showLastSave();
@@ -1264,7 +1469,7 @@ function r90(){
 }
 
 // ═══ NAV ═══
-const TITLES={home:'Vue d\'ensemble',todo:'Checklist',planning:'Planning',nutrition:'Nutrition',sport:'Sport',corps:'Corps',business:'Business & Budget',cfg:'Config'};
+const TITLES={home:'Vue d\'ensemble',todo:'Checklist',planning:'Planning',nutrition:'Nutrition',sport:'Sport',corps:'Corps',business:'Business & Budget',journal:'Journal',cfg:'Config'};
 function go(v,btn){
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
@@ -1274,7 +1479,7 @@ function go(v,btn){
   document.getElementById('mob-title').textContent=TITLES[v]||v;
   sessionStorage.setItem('activeView',v);
   closeSB();
-  const r={home:renderHome,todo:renderTodo,business:renderBiz,planning:renderPlan,corps:renderCorps,nutrition:renderNutrition,sport:renderSport,cfg:renderCfg};
+  const r={home:renderHome,todo:renderTodo,business:renderBiz,planning:renderPlan,corps:renderCorps,nutrition:renderNutrition,sport:renderSport,journal:renderJournal,cfg:renderCfg};
   if(r[v])r[v]();
 }
 function openSB(){document.getElementById('sidebar').classList.add('open');document.getElementById('ov').classList.add('open')}
@@ -2001,7 +2206,7 @@ function scheduleFirebaseBackup(){
   _fbakTimer=setTimeout(pushFirebaseBackup,5*60*1000);
 }
 function pushFirebaseBackup(){
-  if(!fbReady||!fbRef)return;
+  if(!fbReady||!fbRef||typeof firebase==='undefined')return;
   try{firebase.database().ref('backups/main').set({...S,_bakTs:Date.now()});}catch(e){}
 }
 function importFirebaseBackup(){
@@ -2094,6 +2299,25 @@ function saveFB(){
     initFirebase();
     setTimeout(()=>{document.getElementById('fb-status').textContent=fbReady?'✓ Connecté et synchro':'✗ Erreur connexion'},2000);
   }catch(e){document.getElementById('fb-status').textContent='JSON invalide — vérifie le format'}
+}
+
+function restoreFirebaseSnapshot(){
+  const st=document.getElementById('snap-status');
+  const dateEl=document.getElementById('cfg-snapshot-date');
+  const dateKey=dateEl&&dateEl.value;
+  if(!dateKey){st.textContent='Choisis une date';return;}
+  if(!fbReady){st.textContent='Firebase non connecté';return;}
+  st.textContent='Chargement...';
+  firebase.database().ref('snapshots/'+dateKey).once('value').then(snap=>{
+    const data=snap.val();
+    if(!data){st.textContent='Aucun snapshot pour '+dateKey;return;}
+    if(!confirm('Restaurer le snapshot du '+dateKey+' ? Ça écrasera les données actuelles.')){st.textContent='Annulé';return;}
+    Object.assign(S,data);S._ts=Date.now();
+    localStorage.setItem('jtb3',JSON.stringify(S));
+    if(fbReady&&fbRef){ignoreNext=true;fbRef.set(S);}
+    st.textContent='✓ Restauré !';
+    setTimeout(()=>location.reload(),800);
+  }).catch(e=>{st.textContent='Erreur : '+e.message;});
 }
 
 // ═══ NUTRITION ═══
@@ -2306,6 +2530,185 @@ function renderSport(dir=''){
   document.getElementById('sport-content').innerHTML=h;
 }
 
+// ═══ JOURNAL ═══
+let journalDate=null;
+const DAYS_FR_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const MONTHS_FR=['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
+
+function getJournalDateStr(){
+  if(!journalDate){
+    // Par défaut: hier
+    const y=new Date();y.setDate(y.getDate()-1);
+    journalDate=y.toISOString().slice(0,10);
+  }
+  return journalDate;
+}
+
+function navJournal(dir){
+  const d=new Date(getJournalDateStr()+'T12:00');
+  d.setDate(d.getDate()+dir);
+  const today=td();
+  if(d.toISOString().slice(0,10)>today)return; // pas dans le futur
+  journalDate=d.toISOString().slice(0,10);
+  renderJournal(dir>0?'right':'left');
+}
+
+function jumpJournal(dateStr){
+  if(!dateStr)return;
+  const today=td();
+  if(dateStr>today)return;
+  journalDate=dateStr;
+  renderJournal();
+}
+
+function renderJournal(dir=''){
+  const dateKey=getJournalDateStr();
+  const d=new Date(dateKey+'T12:00');
+  const dayName=DAYS_FR_FULL[d.getDay()];
+  const dayNum=d.getDate();
+  const monthName=MONTHS_FR[d.getMonth()];
+  const isToday=dateKey===td();
+  
+  // Update picker & label
+  const picker=document.getElementById('journal-picker');
+  if(picker){picker.value=dateKey;picker.max=td();}
+  const label=document.getElementById('journal-label');
+  if(label){
+    label.textContent=isToday?'Aujourd\'hui':`${dayName} ${dayNum} ${monthName}`;
+    label.classList.toggle('today',isToday);
+  }
+  
+  const animClass=dir==='right'?'day-slide':dir==='left'?'day-slide-left':'';
+  
+  // Get data for that day
+  const hist=S.todoHistory&&S.todoHistory.find(h=>h.date===dateKey);
+  const nc=(S.nutritionChecks||{})[dateKey]||{};
+  const sc=(S.sportChecks||{})[dateKey]||{};
+  
+  // Calculate day of week for sport program
+  const dow=(d.getDay()+6)%7;
+  const prog=SPORT_PROG[dow];
+  
+  let h=`<div class="${animClass}">`;
+  
+  // Life Score for that day
+  const ls=hist&&hist.lifeScore?hist.lifeScore:0;
+  const todosDone=hist?hist.done:0;
+  const todosTotal=hist?hist.total:0;
+  const todoPct=todosTotal?Math.round(todosDone/todosTotal*100):0;
+  
+  h+=`<div class="card gap" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div style="font-size:32px;font-weight:800;color:var(--accent)">${ls}</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">LIFE SCORE</div>
+      </div>
+      <div style="flex:1;min-width:120px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">Checklist</span>
+          <span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${todoPct>=70?'var(--accent)':todoPct>=40?'var(--orange)':'var(--red)'}">${todosDone}/${todosTotal} · ${todoPct}%</span>
+        </div>
+        <div style="height:6px;background:var(--glass3);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${todoPct}%;background:var(--accent);border-radius:99px;transition:width .3s"></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  
+  // Checklist
+  h+=`<div class="card gap" style="margin-bottom:14px">
+    <div class="card-title">✓ Checklist</div>`;
+  if(hist&&hist.items&&hist.items.length){
+    hist.items.forEach(t=>{
+      h+=`<div class="ci ${t.done?'done':''}" style="cursor:default;pointer-events:none">
+        <div class="ci-box"></div>
+        <span class="ci-label">${t.label}</span>
+        <span class="ci-cat">${t.cat||''}</span>
+      </div>`;
+    });
+  } else {
+    h+=`<div style="font-size:13px;color:var(--muted);padding:12px 0">Aucune donnée pour ce jour.</div>`;
+  }
+  h+=`</div>`;
+  
+  // Sport
+  h+=`<div class="card gap" style="margin-bottom:14px">
+    <div class="card-title">🏋 Sport — ${prog.type||prog.day}</div>`;
+  if(prog.rest){
+    h+=`<div style="font-size:14px;color:var(--muted);padding:12px 0;text-align:center">😴 Jour de repos</div>`;
+  } else {
+    const warmupIds=prog.warmup.map((_,i)=>'w'+i);
+    const stretchIds=(prog.stretch||[]).map((_,i)=>'str'+i);
+    let exoIds=[];
+    if(prog.tours){for(let t=1;t<=prog.tours;t++)prog.exos.forEach(e=>exoIds.push(e.id+'-t'+t));}
+    else exoIds=prog.exos.map(e=>e.id);
+    const allIds=[...warmupIds,...exoIds,...stretchIds];
+    const doneCnt=allIds.filter(id=>sc[id]).length;
+    const sportPct=allIds.length?Math.round(doneCnt/allIds.length*100):0;
+    
+    h+=`<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px">${doneCnt}/${allIds.length} · ${sportPct}%</div>`;
+    
+    if(prog.warmup.length){
+      h+=`<div style="font-size:11px;font-weight:700;color:var(--orange);margin:8px 0 4px">🔥 Échauffement</div>`;
+      prog.warmup.forEach((w,i)=>{
+        const id='w'+i;const done=!!sc[id];
+        h+=`<div class="exo-row" style="pointer-events:none"><div class="exo-check ${done?'done':''}"></div><span class="exo-label ${done?'done':''}">${w}</span></div>`;
+      });
+    }
+    
+    if(prog.tours){
+      for(let t=1;t<=prog.tours;t++){
+        h+=`<div style="font-size:11px;font-weight:700;color:var(--orange);margin:8px 0 4px">🔁 Tour ${t}/${prog.tours}</div>`;
+        prog.exos.forEach(e=>{
+          const id=e.id+'-t'+t;const done=!!sc[id];
+          h+=`<div class="exo-row" style="pointer-events:none"><div class="exo-check ${done?'done':''}"></div><span class="exo-label ${done?'done':''}">${e.l}</span></div>`;
+        });
+      }
+    } else {
+      h+=`<div style="font-size:11px;font-weight:700;color:var(--orange);margin:8px 0 4px">💪 Exercices</div>`;
+      prog.exos.forEach(e=>{
+        const done=!!sc[e.id];
+        h+=`<div class="exo-row" style="pointer-events:none"><div class="exo-check ${done?'done':''}"></div><span class="exo-label ${done?'done':''}">${e.l}</span></div>`;
+      });
+    }
+    
+    if(prog.stretch&&prog.stretch.length){
+      h+=`<div style="font-size:11px;font-weight:700;color:var(--green);margin:8px 0 4px">🧘 Étirements</div>`;
+      prog.stretch.forEach((s,i)=>{
+        const id='str'+i;const done=!!sc[id];
+        h+=`<div class="exo-row" style="pointer-events:none"><div class="exo-check ${done?'done':''}"></div><span class="exo-label ${done?'done':''}">${s}</span></div>`;
+      });
+    }
+  }
+  h+=`</div>`;
+  
+  // Nutrition
+  const MEALS=[
+    {key:'breakfast',emoji:'🌅',label:'Petit-déjeuner'},
+    {key:'lunch',emoji:'☀️',label:'Déjeuner'},
+    {key:'snack',emoji:'🍎',label:'Collation'},
+    {key:'dinner',emoji:'🌙',label:'Dîner'}
+  ];
+  const mealsDone=MEALS.filter(m=>{const v=nc[m.key];return v!==false&&v!==undefined&&v!==null;}).length;
+  
+  h+=`<div class="card gap">
+    <div class="card-title">🍽 Nutrition</div>
+    <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px">${mealsDone}/4 repas</div>`;
+  MEALS.forEach(m=>{
+    const v=nc[m.key];
+    const done=v!==false&&v!==undefined&&v!==null;
+    h+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:18px">${m.emoji}</span>
+      <span style="flex:1;font-size:13px;${done?'':'color:var(--muted)'}">${m.label}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:${done?'var(--accent)':'var(--muted)'}">${done?'✓':'—'}</span>
+    </div>`;
+  });
+  h+=`</div>`;
+  
+  h+=`</div>`;
+  document.getElementById('journal-content').innerHTML=h;
+}
+
 // ═══ AUTO-CHECKS ═══
 function syncAutoChecks(){
   if(!S.todos)return;
@@ -2344,6 +2747,9 @@ function syncAutoChecks(){
   const a=localStorage.getItem('life_accent')||'lime';
   document.documentElement.setAttribute('data-theme',t);
   document.documentElement.setAttribute('data-accent',a);
+  // On a toujours des données maintenant (backup intégré), donc cacher l'overlay
+  const overlay=document.getElementById('loading-overlay');
+  if(overlay)overlay.style.display='none';
 })();
 initPlanState();dailyReset();initFirebase();
 go(sessionStorage.getItem('activeView')||'home');
