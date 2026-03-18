@@ -572,23 +572,10 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       </div>
     </div>
 
-    <!-- MINI CHECKLIST -->
-    <div class="card gap">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <div class="card-title" style="margin:0">Checklist du jour</div>
-        <span class="score-badge" id="h-score">0/10</span>
-      </div>
-      <div id="h-todos"></div>
-    </div>
-
-    <!-- PAST DAYS CHECKLIST -->
-    <div class="card gap" id="h-past-card" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div class="card-title" style="margin:0">Jours précédents</div>
-        <span class="score-badge" id="h-past-toggle" style="cursor:pointer;user-select:none" onclick="togglePastDays()">Voir ↓</span>
-      </div>
-      <div id="h-past-days" style="display:none"></div>
-    </div>
+    <!-- MINI CHECKLIST (hidden - use Weekly Tracker instead) -->
+    <div style="display:none"><div id="h-todos"></div><span id="h-score"></span></div>
+    <!-- PAST DAYS (hidden) -->
+    <div style="display:none" id="h-past-card"><div id="h-past-days"></div><span id="h-past-toggle"></span></div>
 
     <!-- DISCIPLINE HISTORY -->
     <div class="card gap">
@@ -1133,7 +1120,7 @@ const DAILY=[
   {id:'t15',label:'Whey',done:false,cat:'corps',group:'corps'},
   {id:'t16',label:'Oméga 3',done:false,cat:'corps',group:'corps'},
   // BUSINESS
-  {id:'t3',label:'Prospecter 20 entreprises',done:false,cat:'business',group:'business'},
+  {id:'t3',label:'Travail Agence',done:false,cat:'business',group:'business'},
   {id:'t4',label:'Travail agence 3h+',done:false,cat:'business',scheduleTag:'agence',group:'business'},
   {id:'t5',label:'Code de la route 1h',done:false,cat:'code',scheduleTag:'route',group:'business'},
   {id:'t6',label:'n8n / IA 30 min',done:false,cat:'ia',scheduleTag:'n8n',group:'business'},
@@ -1153,6 +1140,8 @@ const DAILY=[
   {id:'t13',label:'No doomscroll',done:false,cat:'discipline',group:'discipline'},
   {id:'t12',label:'No Sofia',done:false,cat:'discipline',activeDays:[0,2,3,4,6],group:'discipline'},
   {id:'t19',label:'No smoke',done:false,cat:'discipline',group:'discipline'},
+  {id:'t34',label:'No alcohol',done:false,cat:'discipline',group:'discipline'},
+  {id:'t35',label:'No video games',done:false,cat:'discipline',group:'discipline'},
   // SOMMEIL
   {id:'t10',label:'Couché avant minuit',done:false,cat:'mental',group:'sommeil'},
 ];
@@ -1294,7 +1283,7 @@ if(!S||!S._ts||S._ts===0){
     if(!S.sportChecks[k])S.sportChecks[k]=DEFAULT_STATE.sportChecks[k];
   });
 }
-// Migration baseRoutine : ajouter t20-t33, supprimer t9, ajouter activeDays à t12
+// Migration baseRoutine : ajouter t20-t35, supprimer t9, ajouter activeDays à t12
 if(S.baseRoutine&&!S.baseRoutine.find(x=>x.id==='t20')){
   const newItems=DAILY.filter(d=>!S.baseRoutine.find(b=>b.id===d.id));
   S.baseRoutine.push(...newItems.map(x=>({id:x.id,label:x.label,cat:x.cat,group:x.group,activeDays:x.activeDays,scheduleTag:x.scheduleTag})));
@@ -1302,9 +1291,28 @@ if(S.baseRoutine&&!S.baseRoutine.find(x=>x.id==='t20')){
   const t12=S.baseRoutine.find(x=>x.id==='t12');
   if(t12&&!t12.activeDays)t12.activeDays=[0,2,3,4,6];
   if(t12&&!t12.group)t12.group='discipline';
-  // Ajouter group aux items existants si manquant
   S.baseRoutine.forEach(br=>{const d=DAILY.find(x=>x.id===br.id);if(d){if(!br.group)br.group=d.group;if(!br.activeDays&&d.activeDays)br.activeDays=d.activeDays;}});
-  S.checkDate=null; // Force rebuild des todos du jour
+  S.checkDate=null;
+}
+// Migration t34/t35 : No Alcohol + No Video Games
+if(S.baseRoutine&&!S.baseRoutine.find(x=>x.id==='t34')){
+  ['t34','t35'].forEach(id=>{const d=DAILY.find(x=>x.id===id);if(d&&!S.baseRoutine.find(b=>b.id===id))S.baseRoutine.push({id:d.id,label:d.label,cat:d.cat,group:d.group});});
+  S.checkDate=null;
+}
+// Migration t3 label : Prospecter → Travail Agence
+if(S.baseRoutine){const t3=S.baseRoutine.find(x=>x.id==='t3');if(t3&&t3.label==='Prospecter 20 entreprises')t3.label='Travail Agence';}
+// Migration weekTemplate v2 (nouveau planning)
+if(!S.planTemplateV||S.planTemplateV<2){
+  S.weekTemplate=null;
+  S.agendaSynced={};
+  S.agendaEvents=(S.agendaEvents||[]).filter(ev=>!ev.fromTmpl);
+  S.planTemplateV=2;
+  S.checkDate=null;
+}
+// Injection events spéciaux
+if(!S.agendaEvents)S.agendaEvents=[];
+if(!S.agendaEvents.find(e=>e.id==='ev-ortho')){
+  S.agendaEvents.push({id:'ev-ortho',label:'Orthodontiste',startH:10,endH:11,color:'rest',date:'2026-04-14',fromTmpl:false});
 }
 localStorage.setItem('jtb3',JSON.stringify(S));
 const save=()=>{
@@ -1362,11 +1370,10 @@ function buildTodosForDay(base,dateStr){
   const todayEvs=(S.agendaEvents||[]).filter(ev=>ev.date===dateStr);
   const todayLabels=todayEvs.map(ev=>ev.label.toLowerCase());
   const hasAgenda=todayEvs.length>0;
-  // Calcul heure coucher selon premier event de demain
-  const wakeup=getTomorrowWakeup(dateStr);
-  const sleepLabel=wakeup!==null?'Couché avant '+calcBedtime(wakeup):'Couché avant minuit';
   // Jour de la semaine Monday-based (0=lundi...6=dimanche)
   const dow=(new Date(dateStr+'T12:00').getDay()+6)%7;
+  // Heure coucher fixe par jour de la semaine (1=mardi, 5=samedi → 1h du matin, sinon 23h)
+  const sleepLabel=(dow===1||dow===5)?'Couché avant 1h':'Couché avant 23h';
   return base.map(x=>{
     const daily=dailyMap[x.id];
     // Items à label dynamique
@@ -1588,8 +1595,6 @@ function renderHome(){
   const ls=S.seances[S.seances.length-1];
   document.getElementById('h-seance').textContent=ls?ls.type:'—';
   document.getElementById('h-seance-d').textContent=ls?ls.date:'Aucune séance';
-  renderMiniTodos();
-  renderPastDays();
   renderHistory();
   renderWeeklyTracker();
 }
@@ -1651,17 +1656,14 @@ function renderWeeklyTracker(){
   const el=document.getElementById('weekly-tracker');
   if(!el)return;
   const today=td();
-  // Tous les jours depuis start90 jusqu'à aujourd'hui
   const start=new Date((S.start90||'2026-03-13')+'T12:00');
   const days=[];
   let cur=new Date(start);
   while(cur.toISOString().slice(0,10)<=today){days.push(cur.toISOString().slice(0,10));cur.setDate(cur.getDate()+1);}
-  // Ordre des lignes = ordre des todos du jour
   const todayItems=S.todos||[];
-  const rows=todayItems.map(t=>({id:t.id,label:t.label}));
+  const rows=todayItems.map(t=>({id:t.id,label:t.label,group:t.group||''}));
   const DAY_MON=['L','M','M','J','V','S','D'];
-  const circ=2*Math.PI*14; // ≈87.96
-  // Header
+  const circ=2*Math.PI*14;
   let html='<table style="border-collapse:collapse;min-width:max-content">';
   html+='<thead><tr>';
   html+=`<th style="position:sticky;left:0;z-index:6;background:var(--surface);min-width:110px;max-width:140px;padding:0 6px 8px 0;text-align:left;font-family:var(--mono);font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:400"></th>`;
@@ -1673,11 +1675,11 @@ function renderWeeklyTracker(){
     const dateNum=day.slice(8);
     const hist=isToday?null:(S.todoHistory||[]).find(h=>h.date===day);
     const items=isToday?(S.todos||[]):(hist?.items||[]);
-    const total=items.length;
-    const done=items.filter(t=>t.done).length;
-    const pct=total>0?Math.round(done/total*100):0;
+    const applicable=rows.filter(row=>{const dd=DAILY.find(x=>x.id===row.id);return!(dd?.activeDays&&!dd.activeDays.includes(dow));});
+    const doneCount=applicable.filter(row=>items.find(t=>t.id===row.id&&t.done)).length;
+    const pct=applicable.length>0?Math.round(doneCount/applicable.length*100):0;
     const color=pct>=80?'var(--accent)':pct>=60?'var(--green)':pct>=30?'var(--orange)':'var(--red)';
-    const offset=total>0?circ*(1-pct/100):circ;
+    const offset=applicable.length>0?circ*(1-pct/100):circ;
     const todayBorder=isToday?'outline:1px solid rgba(var(--accent-rgb),.35);outline-offset:-2px;border-radius:8px;background:rgba(var(--accent-rgb),.04);':'';
     html+=`<th style="min-width:44px;text-align:center;padding:0 2px 6px;${todayBorder}">
       <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
@@ -1687,59 +1689,73 @@ function renderWeeklyTracker(){
           <text x="18" y="23" text-anchor="middle" font-size="11" font-weight="700" fill="${isToday?'var(--accent)':'var(--text2)'}">${letter}</text>
         </svg>
         <span style="font-family:var(--mono);font-size:8px;color:var(--muted)">${dateNum}</span>
-        <span style="font-family:var(--mono);font-size:8px;color:${color}">${total>0?pct+'%':'—'}</span>
+        <span style="font-family:var(--mono);font-size:8px;color:${color}">${applicable.length>0?pct+'%':'—'}</span>
       </div>
     </th>`;
   });
   html+='</tr></thead><tbody>';
-  // Lignes items
-  rows.forEach(row=>{
+  rows.forEach((row,rowIdx)=>{
     html+=`<tr><td style="position:sticky;left:0;z-index:5;background:var(--surface);padding:3px 6px 3px 0;font-family:var(--mono);font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${row.label}">${row.label}</td>`;
     days.forEach(day=>{
       const isToday=day===today;
+      const d=new Date(day+'T12:00');
+      const dow=(d.getDay()+6)%7;
+      const dailyDef=DAILY.find(x=>x.id===row.id);
+      const excluded=!!(dailyDef?.activeDays&&!dailyDef.activeDays.includes(dow));
       const hist=isToday?null:(S.todoHistory||[]).find(h=>h.date===day);
       const items=isToday?(S.todos||[]):(hist?.items||[]);
       const itemIdx=items.findIndex(t=>t.id===row.id);
       const item=itemIdx>=0?items[itemIdx]:null;
       const todayBg=isToday?'background:rgba(var(--accent-rgb),.04);':'';
       let cell,onclick='';
-      if(!item){
-        cell=`<span style="font-family:var(--mono);font-size:9px;color:var(--muted2)">·</span>`;
-      } else if(item.done){
+      if(excluded){
+        cell=`<span style="font-family:var(--mono);font-size:9px;color:var(--border2)">—</span>`;
+      } else if(item&&item.done){
         cell=`<div style="width:10px;height:10px;background:var(--accent);border-radius:2px;margin:0 auto"></div>`;
-        onclick=isToday?`onclick="toggleTodo(${itemIdx},true)"`:`onclick="wtToggle('${day}','${row.id}')"`;
+        onclick=isToday?`onclick="toggleTodo(${itemIdx},true)"`:`onclick="wtToggle('${day}','${row.id}','${row.label}','${row.group||''}')"`;
       } else {
         cell=`<div style="width:10px;height:10px;border:1.5px solid var(--muted2);border-radius:2px;margin:0 auto;opacity:.4"></div>`;
-        onclick=isToday?`onclick="toggleTodo(${itemIdx},true)"`:`onclick="wtToggle('${day}','${row.id}')"`;
+        if(isToday&&itemIdx>=0){onclick=`onclick="toggleTodo(${itemIdx},true)"`;}
+        else if(!isToday){onclick=`onclick="wtToggle('${day}','${row.id}','${row.label}','${row.group||''}')"`;};
       }
-      html+=`<td style="text-align:center;padding:3px 2px;cursor:${item?'pointer':'default'};${todayBg}" ${onclick} title="${row.label}">${cell}</td>`;
+      html+=`<td style="text-align:center;padding:3px 2px;cursor:${excluded?'default':'pointer'};${todayBg}" ${onclick} title="${row.label}">${cell}</td>`;
     });
     html+='</tr>';
   });
   html+='</tbody></table>';
   el.innerHTML=html;
-  // Auto-scroll vers aujourd'hui (droite)
   requestAnimationFrame(()=>{el.scrollLeft=el.scrollWidth;});
-  // Streak badge (80%+)
   const streakEl=document.getElementById('wt-streak');
   if(streakEl){
     let streak=0;
     const rev=[...days].reverse();
     for(const day of rev){
       const isToday=day===today;
+      const d=new Date(day+'T12:00');
+      const dow=(d.getDay()+6)%7;
       const items=isToday?(S.todos||[]):((S.todoHistory||[]).find(h=>h.date===day)?.items||[]);
-      const total=items.length;const done=items.filter(t=>t.done).length;
-      if(total>0&&done/total>=0.8)streak++;else break;
+      const applicable=rows.filter(row=>{const dd=DAILY.find(x=>x.id===row.id);return!(dd?.activeDays&&!dd.activeDays.includes(dow));});
+      const done=applicable.filter(row=>items.find(t=>t.id===row.id&&t.done)).length;
+      if(applicable.length>0&&done/applicable.length>=0.8)streak++;else break;
     }
     streakEl.textContent=streak>0?streak+'j 80%+':'—';
   }
 }
-function wtToggle(date,itemId){
-  if(!S.todoHistory)return;
-  const h=S.todoHistory.find(x=>x.date===date);
-  if(!h||!h.items)return;
-  const item=h.items.find(x=>x.id===itemId);
-  if(!item)return;
+function wtToggle(date,itemId,label,cat){
+  if(!S.todoHistory)S.todoHistory=[];
+  let h=S.todoHistory.find(x=>x.date===date);
+  if(!h){
+    const base=getBaseRoutine();
+    const builtItems=buildTodosForDay(base,date).map(x=>({id:x.id,label:x.label,cat:x.cat,done:false}));
+    h={date,done:0,total:builtItems.length,lifeScore:0,items:builtItems};
+    S.todoHistory.push(h);
+  }
+  let item=h.items.find(x=>x.id===itemId);
+  if(!item){
+    item={id:itemId,label:label||itemId,cat:cat||'',done:false};
+    h.items.push(item);
+    h.total=h.items.length;
+  }
   item.done=!item.done;
   h.done=h.items.filter(x=>x.done).length;
   save();renderWeeklyTracker();renderHistory();
@@ -1975,13 +1991,20 @@ const DEF_COLORS={sport:{name:'Sport',hex:'#4ade80'},work:{name:'Travail',hex:'#
 function allColors(){return {...DEF_COLORS,...(S.customColors||{})}}
 function colorHex(k){const c=allColors()[k];return c?c.hex:DEF_COLORS.work.hex}
 const DEF_TMPL=[
-  [{startH:8.5,endH:9.25,label:'Sport Upper',color:'sport'},{startH:10,endH:13,label:'Travail agence',color:'work'},{startH:14,endH:17,label:'Prospection',color:'prospect'},{startH:17,endH:18,label:'Code route',color:'code'}],
-  [{startH:8.5,endH:9.25,label:'Sport Lower',color:'sport'},{startH:10,endH:13,label:'Travail agence',color:'work'},{startH:14,endH:17,label:'Terrain',color:'prospect'},{startH:17,endH:18,label:'Code route',color:'code'}],
-  [{startH:10,endH:13,label:'Travail / n8n',color:'work'},{startH:14,endH:17,label:'Prospection',color:'prospect'},{startH:17,endH:18,label:'Code route',color:'code'},{startH:20,endH:21,label:'Cheat meal',color:'rest'}],
-  [{startH:8.5,endH:9.25,label:'Sport Back',color:'sport'},{startH:10,endH:13,label:'Travail agence',color:'work'},{startH:14,endH:17,label:'Terrain',color:'prospect'},{startH:17,endH:18,label:'Code route',color:'code'}],
-  [{startH:8.5,endH:9.25,label:'Sport Circuit',color:'sport'},{startH:10,endH:13,label:'Travail agence',color:'work'},{startH:14,endH:17,label:'Prospection',color:'prospect'},{startH:18,endH:19,label:'IA / n8n',color:'work'}],
-  [{startH:8.5,endH:9.25,label:'Sport Pump',color:'sport'},{startH:10,endH:13,label:'Business',color:'work'},{startH:14,endH:17,label:'Prospection',color:'prospect'},{startH:20,endH:21,label:'Repos',color:'rest'}],
-  [{startH:11,endH:12,label:'Grands-parents',color:'rando'},{startH:14,endH:18,label:'Rando 3-4h',color:'rando'},{startH:17,endH:19,label:'Swiss (CV)',color:'work'},{startH:19,endH:20,label:'Repos total',color:'rest'}]
+  // Lundi
+  [{startH:8.5,endH:9.25,label:'Sport Upper',color:'sport'},{startH:10,endH:13,label:'Travail agence',color:'work'},{startH:14,endH:17,label:'Prospection',color:'prospect'},{startH:17,endH:18,label:'Code route',color:'code'},{startH:21,endH:23,label:'Couché 23h',color:'rest'}],
+  // Mardi
+  [{startH:8.5,endH:9.25,label:'Sport Lower',color:'sport'},{startH:10,endH:19,label:'IA / N8N',color:'work'},{startH:21,endH:23,label:'Couché 1h',color:'rest'}],
+  // Mercredi
+  [{startH:13,endH:14,label:'Cheat meal',color:'rest'},{startH:21,endH:23,label:'Couché 23h',color:'rest'}],
+  // Jeudi
+  [{startH:8.5,endH:9.25,label:'Sport Back',color:'sport'},{startH:10,endH:13,label:'Travail agence',color:'work'},{startH:14,endH:17,label:'Terrain',color:'prospect'},{startH:17,endH:18,label:'Code route',color:'code'},{startH:21,endH:23,label:'Couché 23h',color:'rest'}],
+  // Vendredi
+  [{startH:8.5,endH:9.25,label:'Sport Circuit',color:'sport'},{startH:10,endH:13,label:'Travail agence',color:'work'},{startH:14,endH:17,label:'Prospection',color:'prospect'},{startH:17,endH:18,label:'Code route',color:'code'},{startH:18,endH:19,label:'IA / n8n',color:'work'},{startH:21,endH:23,label:'Couché 23h',color:'rest'}],
+  // Samedi
+  [{startH:8.5,endH:9.25,label:'Sport Pump',color:'sport'},{startH:10,endH:13,label:'Business',color:'work'},{startH:14,endH:17,label:'Prospection',color:'prospect'},{startH:21,endH:23,label:'Couché 1h',color:'rest'}],
+  // Dimanche
+  [{startH:10,endH:14,label:'Grands-parents',color:'rest'},{startH:14,endH:17,label:'Rando',color:'rando'},{startH:17,endH:19,label:'Suisse',color:'work'},{startH:21,endH:23,label:'Couché 23h',color:'rest'}]
 ];
 function initPlanState(){
   if(!S.weekTemplate||!Array.isArray(S.weekTemplate)||S.weekTemplate.length!==7)
