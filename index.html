@@ -1121,7 +1121,6 @@ const DAILY=[
   {id:'t16',label:'Oméga 3',done:false,cat:'corps',group:'corps'},
   // BUSINESS
   {id:'t3',label:'Travail Agence',done:false,cat:'business',group:'business'},
-  {id:'t4',label:'Travail agence 3h+',done:false,cat:'business',scheduleTag:'agence',group:'business'},
   {id:'t5',label:'Code de la route 1h',done:false,cat:'code',scheduleTag:'route',group:'business'},
   {id:'t6',label:'n8n / IA 30 min',done:false,cat:'ia',scheduleTag:'n8n',group:'business'},
   // NUTRITION
@@ -1555,7 +1554,7 @@ function renderMiniTodos(){
 
 function renderHistory(){
   if(!S.todoHistory)S.todoHistory=[];
-  const hist=S.todoHistory.slice(-13);
+  const hist=S.todoHistory.filter(h=>h.date!==td()).slice(-13);
   const todayDone=S.todos?S.todos.filter(t=>t.done).length:0;
   const todayTotal=S.todos?S.todos.length:13;
   const todayLS=S.lifeScore||0;
@@ -1982,6 +1981,9 @@ function agendaReSyncDay(dateStr){
     if(!excl.includes(ev.id))
       S.agendaEvents.push({...ev,id:'ag-'+Math.random().toString(36).slice(2,8),date:dateStr,fromTmpl:true,tmplId:ev.id});
   });
+  // Marquer comme synced pour éviter que agendaSyncDay re-ajoute par-dessus
+  if(!S.agendaSynced)S.agendaSynced={};
+  S.agendaSynced[dateStr]=true;
 }
 function fmtH(h){const hrs=Math.floor(h);const m=Math.round((h-hrs)*60);return hrs+'h'+(m?String(m).padStart(2,'0'):'');}
 let planTab='template';
@@ -2916,12 +2918,19 @@ function runMigrations(){
     S.todoHistory.forEach(h=>{if(!byDate[h.date]||h.done>byDate[h.date].done||(h.items&&h.items.length>(byDate[h.date].items||[]).length))byDate[h.date]=h;});
     S.todoHistory=Object.values(byDate).sort((a,b)=>a.date.localeCompare(b.date));
   }
-  // Déduplication agendaEvents
+  // Déduplication agendaEvents (fromTmpl: par date+tmplId ; manuel: par date+label+startH)
   if(S.agendaEvents&&S.agendaEvents.length){
     const seen=new Set();
-    S.agendaEvents=S.agendaEvents.filter(ev=>{const k=ev.date+'|'+(ev.tmplId||ev.id)+'|'+ev.startH;if(seen.has(k))return false;seen.add(k);return true;});
+    S.agendaEvents=S.agendaEvents.filter(ev=>{
+      const k=ev.fromTmpl?(ev.date+'|'+ev.tmplId):(ev.date+'|'+(ev.label||'')+'|'+ev.startH);
+      if(seen.has(k))return false;seen.add(k);return true;
+    });
   }
   // Migration baseRoutine
+  if(S.baseRoutine){
+    // Supprimer t4 (doublon de t3 "Travail Agence")
+    S.baseRoutine=S.baseRoutine.filter(x=>x.id!=='t4');
+  }
   if(S.baseRoutine&&!S.baseRoutine.find(x=>x.id==='t20')){
     const newItems=DAILY.filter(d=>!S.baseRoutine.find(b=>b.id===d.id));
     S.baseRoutine.push(...newItems.map(x=>({id:x.id,label:x.label,cat:x.cat,group:x.group,activeDays:x.activeDays,scheduleTag:x.scheduleTag})));
