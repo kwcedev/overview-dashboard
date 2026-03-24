@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Life+ — Dashboard</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Life+">
+<meta name="theme-color" content="#8B5CF6">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Life%2B%22%2C%22short_name%22%3A%22Life%2B%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230d0d12%22%2C%22theme_color%22%3A%22%238B5CF6%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%3D%2527http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%2527%2520viewBox%3D%25270%25200%2520192%2520192%2527%253E%253Crect%2520width%3D%2527192%2527%2520height%3D%2527192%2527%2520rx%3D%252748%2527%2520fill%3D%2527%25230d0d12%2527%2F%253E%253Ctext%2520x%3D%252796%2527%2520y%3D%2527130%2527%2520font-size%3D%2527110%2527%2520text-anchor%3D%2527middle%2527%2520fill%3D%2527%25238B5CF6%2527%253E%25E2%259E%259C%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -1280,7 +1285,8 @@ const DAILY=[
   // CORPS
   {id:'t7',label:'2L eau minimum',done:false,cat:'corps',group:'corps'},
   {id:'t8',label:'Lumière du jour 15 min',done:false,cat:'corps',group:'corps'},
-  {id:'t20',label:'150g protéines',done:false,cat:'corps',group:'corps'},
+  {id:'t20',label:'112g protéines',done:false,cat:'corps',group:'corps'},
+  {id:'t36',label:'Douche froide',done:false,cat:'corps',group:'corps'},
   {id:'t14',label:'Créatine',done:false,cat:'corps',group:'corps'},
   {id:'t16',label:'Oméga 3',done:false,cat:'corps',group:'corps'},
   // BUSINESS
@@ -2660,20 +2666,20 @@ function getDayDate(idx){
 }
 
 const MEAL_DATA={
-  breakfast:{time:'8h30',name:'Petit-déjeuner',options:['Milkshake : lait + whey + banane + créatine + grenade','Skyr + miel + muesli + fruit + créatine']},
-  snack:{time:'16h30',name:'Collation',options:['Skyr + miel + muesli','Yaourt grec + fruit','Houmous + wrap + concombre']},
-  dinner:{time:'19h30',name:'Dîner',options:['Saumon + asperges + riz ou semoule','Bœuf + sucrine + avocat','Œufs au plat + salade + pain complet']}
+  breakfast:{time:'8h30',name:'Petit-déjeuner',options:['Lait + banane + créatine','Skyr + miel + muesli + fruit + créatine']},
+  snack:{time:'16h30',name:'Collation',options:['Yaourt grec + banane','Skyr + miel + muesli','Houmous + wrap + concombre']},
+  dinner:{time:'19h30',name:'Dîner',options:['Saumon 200g + 2 œufs + asperges/concombre + semoule','Rumsteak 200g + sucrine + avocat + 2 œufs','Œufs (4) au plat + salade + pain complet']}
 };
 const LUNCH_PACKS=[
-  {label:'Pack 1',desc:'Bœuf + semoule + poivrons/champignons + huile d\'olive'},
+  {label:'Pack 1',desc:'Rumsteak 200g + semoule + salade + avocat'},
   {label:'Pack 2',desc:'Wraps + poulet/dinde + sucrine/concombre/cornichons + sauce yaourt citron + avocat'},
   {label:'Pack 3',desc:'Thon boîte + salade + maïs + cornichons + pain complet'}
 ];
 const SHOPPING_ITEMS={
-  breakfast:['Lait','Whey protéine','Banane','Créatine','Grenade','Skyr','Miel','Muesli'],
-  lunch:['Bœuf haché','Semoule','Poivrons','Champignons','Huile d\'olive','Wraps','Poulet ou dinde','Sucrine','Concombre','Cornichons','Sauce yaourt citron','Avocat','Thon en boîte','Salade verte','Maïs','Pain complet'],
-  snack:['Skyr','Miel','Muesli','Yaourt grec','Houmous','Wrap','Concombre'],
-  dinner:['Saumon','Asperges','Riz','Bœuf','Sucrine','Avocat','Œufs','Pain complet']
+  breakfast:['Lait','Banane','Créatine','Skyr','Miel','Muesli'],
+  lunch:['Rumsteak','Semoule','Salade verte','Avocat','Wraps','Poulet ou dinde','Sucrine','Concombre','Cornichons','Sauce yaourt citron','Thon en boîte','Maïs','Pain complet'],
+  snack:['Yaourt grec','Banane','Skyr','Miel','Muesli','Houmous','Wrap','Concombre'],
+  dinner:['Saumon','Œufs','Asperges','Concombre','Semoule','Rumsteak','Sucrine','Avocat','Pain complet']
 };
 
 function nutriSelectOpt(dateKey,mealId,optIdx){
@@ -2710,16 +2716,16 @@ function renderNutrition(dir=''){
   const animClass=dir==='right'?'day-slide':dir==='left'?'day-slide-left':'';
 
   // Protein data per meal
-  const MEAL_PROTEIN={breakfast:35,lunch:40,snack:20,dinner:40};
+  const MEAL_PROTEIN={breakfast:9,lunch:40,snack:11,dinner:52};
   const meals=[
-    {id:'breakfast',...MEAL_DATA.breakfast,cal:'~450 kcal',prot:MEAL_PROTEIN.breakfast+'g prot'},
+    {id:'breakfast',...MEAL_DATA.breakfast,cal:'~250 kcal',prot:MEAL_PROTEIN.breakfast+'g prot'},
     {id:'lunch',time:'12h30',name:isCheat?'Cheat Meal':'Déjeuner',isCheat,cal:isCheat?'— kcal':'~550 kcal',prot:MEAL_PROTEIN.lunch+'g prot'},
-    {id:'snack',...MEAL_DATA.snack,cal:'~250 kcal',prot:MEAL_PROTEIN.snack+'g prot'},
-    {id:'dinner',...MEAL_DATA.dinner,cal:'~500 kcal',prot:MEAL_PROTEIN.dinner+'g prot'}
+    {id:'snack',...MEAL_DATA.snack,cal:'~200 kcal',prot:MEAL_PROTEIN.snack+'g prot'},
+    {id:'dinner',...MEAL_DATA.dinner,cal:'~550 kcal',prot:MEAL_PROTEIN.dinner+'g prot'}
   ];
 
   // Calculate protein progress
-  let protDone=0,protTotal=150;
+  let protDone=0,protTotal=112;
   meals.forEach(m=>{
     const v=checks[m.id];
     if(v!==false&&v!==undefined&&v!==null)protDone+=MEAL_PROTEIN[m.id];
@@ -3062,10 +3068,10 @@ function syncAutoChecks(){
   const nc=(S.nutritionChecks||{})[today]||{};
   const allMeals=['breakfast','lunch','snack','dinner'].every(m=>{const v=nc[m];return v!==false&&v!==undefined&&v!==null;});
   const t18=S.todos.find(t=>t.id==='t18');if(t18)t18.done=allMeals;
-  // Milkshake (breakfast opt 0) → créatine (t14) + whey (t15)
+  // Breakfast opt 0 → créatine (t14)
   if(nc['breakfast']===0){
-    const t14=S.todos.find(t=>t.id==='t14');const t15=S.todos.find(t=>t.id==='t15');
-    if(t14&&!t14.done)t14.done=true;if(t15&&!t15.done)t15.done=true;
+    const t14=S.todos.find(t=>t.id==='t14');
+    if(t14&&!t14.done)t14.done=true;
   }
   save();
   const active=document.querySelector('.view.active');
@@ -3148,6 +3154,14 @@ function runMigrations(){
   if(!S.agendaEvents)S.agendaEvents=[];
   if(!S.agendaEvents.find(e=>e.id==='ev-ortho'))
     S.agendaEvents.push({id:'ev-ortho',label:'Orthodontiste',startH:10,endH:11,color:'rest',date:'2026-04-14',fromTmpl:false});
+  // Migration t36 : supprimer t15 (Whey), ajouter t36 (Douche froide)
+  if(S.baseRoutine){
+    S.baseRoutine=S.baseRoutine.filter(x=>x.id!=='t15');
+    const d36=DAILY.find(x=>x.id==='t36');
+    if(d36&&!S.baseRoutine.find(x=>x.id==='t36'))S.baseRoutine.push({id:d36.id,label:d36.label,cat:d36.cat,group:d36.group});
+    S.checkDate=null;
+  }
+  if(S.todos){S.todos=S.todos.filter(x=>x.id!=='t15');}
 }
 
 async function initApp(){
@@ -3179,6 +3193,27 @@ async function initApp(){
   setInterval(()=>{save();},30000);
 }
 initApp();
+</script>
+<script>
+// ═══ SERVICE WORKER (offline cache) ═══
+if('serviceWorker' in navigator){
+  const swCode=`
+const CACHE='lifeplus-v1';
+const ASSETS=[
+  '/',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap',
+  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js'
+];
+self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS).catch(()=>{})));self.skipWaiting();});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});
+self.addEventListener('fetch',e=>{
+  if(e.request.method!=='GET')return;
+  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res.ok){const c=res.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));}return res;}).catch(()=>caches.match('/'))));
+});`;
+  const blob=new Blob([swCode],{type:'application/javascript'});
+  const url=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url,{scope:'/'}).catch(()=>{});
+}
 </script>
 </body>
 </html>
