@@ -44,4 +44,4 @@ node server.js
 Working prototype
 
 ## Author
-Jim Travers--Blancke — [LinkedIn](https://www.linkedin.com/in/jimtb/)
+https://upscaleai.fr
