@@ -1579,7 +1579,7 @@ function renderHome(){
   const M=['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
   document.getElementById('h-date').textContent=`${D[now.getDay()]} ${now.getDate()} ${M[now.getMonth()]} ${now.getFullYear()}`;
   const h=now.getHours();
-  document.getElementById('h-greet').textContent=(h<12?'Bonne matinée':h<18?'Bon après-midi':'Bonne soirée')+' · Focus → revenus → discipline';
+  document.getElementById('h-greet').textContent=(h<12?'Bonne matinée':h<18?'Bon après-midi':'Bonne soirée');
   r90();
   renderLifeScore();
   renderTodoGauge();
@@ -2579,16 +2579,16 @@ function renderNutrition(dir=''){
   const animClass=dir==='right'?'day-slide':dir==='left'?'day-slide-left':'';
 
   // Protein data per meal
-  const MEAL_PROTEIN={breakfast:9,lunch:40,snack:11,dinner:52};
+  const MEAL_PROTEIN={breakfast:0,lunch:0,snack:0,dinner:0};
   const meals=[
-    {id:'breakfast',...MEAL_DATA.breakfast,cal:'~250 kcal',prot:MEAL_PROTEIN.breakfast+'g prot'},
-    {id:'lunch',time:'12h30',name:isCheat?'Cheat Meal':'Déjeuner',isCheat,cal:isCheat?'— kcal':'~550 kcal',prot:MEAL_PROTEIN.lunch+'g prot'},
-    {id:'snack',...MEAL_DATA.snack,cal:'~200 kcal',prot:MEAL_PROTEIN.snack+'g prot'},
-    {id:'dinner',...MEAL_DATA.dinner,cal:'~550 kcal',prot:MEAL_PROTEIN.dinner+'g prot'}
+    {id:'breakfast',...MEAL_DATA.breakfast,cal:'',prot:''},
+    {id:'lunch',time:'',name:isCheat?'Cheat Meal':'Déjeuner',isCheat,cal:'',prot:''},
+    {id:'snack',...MEAL_DATA.snack,cal:'',prot:''},
+    {id:'dinner',...MEAL_DATA.dinner,cal:'',prot:''}
   ];
 
   // Calculate protein progress
-  let protDone=0,protTotal=112;
+  let protDone=0,protTotal=0;
   meals.forEach(m=>{
     const v=checks[m.id];
     if(v!==false&&v!==undefined&&v!==null)protDone+=MEAL_PROTEIN[m.id];
@@ -3048,7 +3048,7 @@ initApp();
 // ═══ SERVICE WORKER (offline cache) ═══
 if('serviceWorker' in navigator){
   const swCode=`
-const CACHE='lifeplus-v1';
+const CACHE='lifeplus-v2';
 const ASSETS=[
   '/',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap',
