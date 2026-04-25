@@ -1220,6 +1220,7 @@ function _connectDB(){
     const localEmpty=!localStorage.getItem('jtb3')||S._ts===0;
     
     fbRef.on('value',snap=>{
+      if(localStorage.getItem('jtb3_force_reset')==='1'){localStorage.removeItem('jtb3_force_reset');ignoreNext=true;S._ts=Date.now();fbRef.set(S);showSync('↑');return;}
       if(ignoreNext){ignoreNext=false;return}
       const remote=snap.val();
       if(firstRead){
@@ -1297,7 +1298,10 @@ const DEFAULT_STATE={
   sportChecks:{},
   agendaSynced:{},
   agendaExclusions:{},
-  baseRoutine:null
+  baseRoutine:null,
+  sportProg:null,
+  nutritionPlan:[],
+  shoppingList:[]
 };
 
 let S={};
@@ -1993,22 +1997,7 @@ const PLAN_SH=7,PLAN_EH=22,PLAN_HH=34;
 const DEF_COLORS={sport:{name:'Sport',hex:'#4ade80'},work:{name:'Travail',hex:'#60a5fa'},prospect:{name:'Prospection',hex:'#c084fc'},rest:{name:'Repos',hex:'#fb923c'},rando:{name:'Rando',hex:'#d4ff00'},code:{name:'Code route',hex:'#f87171'}};
 function allColors(){return {...DEF_COLORS,...(S.customColors||{})}}
 function colorHex(k){const c=allColors()[k];return c?c.hex:DEF_COLORS.work.hex}
-const DEF_TMPL=[
-  // Lundi
-  [{startH:8.5,endH:9.25,label:'Sport Upper',color:'sport'},{startH:10,endH:13,label:'Travail agence',color:'work'},{startH:14,endH:17,label:'Prospection',color:'prospect'},{startH:17,endH:18,label:'Code route',color:'code'},{startH:21,endH:23,label:'Couché 23h',color:'rest'}],
-  // Mardi
-  [{startH:8.5,endH:9.25,label:'Sport Lower',color:'sport'},{startH:10,endH:19,label:'IA / N8N',color:'work'},{startH:21,endH:23,label:'Couché 1h',color:'rest'}],
-  // Mercredi
-  [{startH:13,endH:14,label:'Cheat meal',color:'rest'},{startH:21,endH:23,label:'Couché 23h',color:'rest'}],
-  // Jeudi
-  [{startH:8.5,endH:9.25,label:'Sport Back',color:'sport'},{startH:10,endH:13,label:'Travail agence',color:'work'},{startH:14,endH:17,label:'Terrain',color:'prospect'},{startH:17,endH:18,label:'Code route',color:'code'},{startH:21,endH:23,label:'Couché 23h',color:'rest'}],
-  // Vendredi
-  [{startH:8.5,endH:9.25,label:'Sport Circuit',color:'sport'},{startH:10,endH:13,label:'Travail agence',color:'work'},{startH:14,endH:17,label:'Prospection',color:'prospect'},{startH:17,endH:18,label:'Code route',color:'code'},{startH:18,endH:19,label:'IA / n8n',color:'work'},{startH:21,endH:23,label:'Couché 23h',color:'rest'}],
-  // Samedi
-  [{startH:8.5,endH:9.25,label:'Sport Pump',color:'sport'},{startH:10,endH:13,label:'Business',color:'work'},{startH:14,endH:17,label:'Prospection',color:'prospect'},{startH:21,endH:23,label:'Couché 1h',color:'rest'}],
-  // Dimanche
-  [{startH:10,endH:14,label:'Grands-parents',color:'rest'},{startH:14,endH:17,label:'Rando',color:'rando'},{startH:17,endH:19,label:'Suisse',color:'work'},{startH:21,endH:23,label:'Couché 23h',color:'rest'}]
-];
+const DEF_TMPL=[[],[],[],[],[],[],[]];
 function initPlanState(){
   if(!S.weekTemplate||!Array.isArray(S.weekTemplate)||S.weekTemplate.length!==7)
     S.weekTemplate=DEF_TMPL.map(day=>day.map(ev=>({...ev,id:'wt-'+Math.random().toString(36).slice(2,8)})));
@@ -2537,64 +2526,80 @@ function getDayDate(idx){
   const d=new Date(now);d.setDate(d.getDate()+(idx-dow));return d.toISOString().slice(0,10);
 }
 
-const MEAL_DATA={
-  breakfast:{time:'',name:'Petit-déjeuner',options:[]},
-  snack:{time:'',name:'Collation',options:[]},
-  dinner:{time:'',name:'Dîner',options:[]}
-};
-const LUNCH_PACKS=[];
-const SHOPPING_ITEMS={breakfast:[],lunch:[],snack:[],dinner:[]};
-
-function nutriSelectOpt(dateKey,mealId,optIdx){
+// ═══ NUTRITION CRUD ═══
+function initNutriPlan(){if(!S.nutritionPlan)S.nutritionPlan=[];if(!S.shoppingList)S.shoppingList=[];}
+function nutriAddMeal(){
+  const name=prompt('Nom du repas (ex: Petit-déjeuner) :');if(!name)return;
+  const time=prompt('Heure (ex: 8h30) :','')||'';
+  initNutriPlan();
+  S.nutritionPlan.push({id:'m-'+Date.now(),name,time,options:[]});
+  save();renderNutrition();
+}
+function nutriEditMeal(mealId){
+  initNutriPlan();const meal=S.nutritionPlan.find(m=>m.id===mealId);if(!meal)return;
+  const name=prompt('Nom :',meal.name);if(name===null)return;
+  const time=prompt('Heure :',meal.time||'');
+  meal.name=name||meal.name;meal.time=time||'';
+  save();renderNutrition();
+}
+function nutriDeleteMeal(mealId){
+  if(!confirm('Supprimer ce repas ?'))return;
+  S.nutritionPlan=S.nutritionPlan.filter(m=>m.id!==mealId);
+  save();renderNutrition();
+}
+function nutriAddOption(mealId){
+  initNutriPlan();const meal=S.nutritionPlan.find(m=>m.id===mealId);if(!meal)return;
+  const opt=prompt('Option (ex: Skyr + miel + muesli) :');if(!opt)return;
+  meal.options.push(opt);save();renderNutrition();
+}
+function nutriDeleteOption(mealId,optIdx){
+  initNutriPlan();const meal=S.nutritionPlan.find(m=>m.id===mealId);if(!meal)return;
+  meal.options.splice(optIdx,1);save();renderNutrition();
+}
+function nutriToggleMeal(dateKey,mealId){
+  if(!S.nutritionChecks)S.nutritionChecks={};
+  if(!S.nutritionChecks[dateKey])S.nutritionChecks[dateKey]={};
+  const cur=S.nutritionChecks[dateKey][mealId];
+  S.nutritionChecks[dateKey][mealId]=(cur===true)?false:true;
+  save();renderNutrition();
+}
+function nutriSelectOptNew(dateKey,mealId,optIdx){
   if(!S.nutritionChecks)S.nutritionChecks={};
   if(!S.nutritionChecks[dateKey])S.nutritionChecks[dateKey]={};
   const cur=S.nutritionChecks[dateKey][mealId];
   S.nutritionChecks[dateKey][mealId]=(cur===optIdx)?false:optIdx;
-  save();syncAutoChecks();renderNutrition();
+  save();renderNutrition();
 }
-function nutriToggleCheat(dateKey,mealId){
-  if(!S.nutritionChecks)S.nutritionChecks={};
-  if(!S.nutritionChecks[dateKey])S.nutritionChecks[dateKey]={};
-  S.nutritionChecks[dateKey][mealId]=!S.nutritionChecks[dateKey][mealId];
-  save();syncAutoChecks();renderNutrition();
+function shopAdd(){
+  const label=prompt('Ajouter à la liste de courses :');if(!label)return;
+  initNutriPlan();
+  S.shoppingList.push({id:'sh-'+Date.now(),label,checked:false});
+  save();renderNutrition();
+}
+function shopToggle(id){
+  initNutriPlan();const item=S.shoppingList.find(s=>s.id===id);
+  if(item)item.checked=!item.checked;save();renderNutrition();
+}
+function shopDelete(id){
+  initNutriPlan();S.shoppingList=S.shoppingList.filter(s=>s.id!==id);
+  save();renderNutrition();
+}
+function shopClearDone(){
+  initNutriPlan();S.shoppingList=S.shoppingList.filter(s=>!s.checked);
+  save();renderNutrition();
 }
 function navNutri(dir){nutriDay=(nutriDay+dir+7)%7;renderNutrition(dir>0?'right':'left');}
-function showShopping(){
-  const el=document.getElementById('nutri-shopping');if(!el)return;
-  if(el.classList.contains('open')){el.classList.remove('open');return;}
-  const nextIdx=(nutriDay+1)%7;
-  const isCheat=nextIdx===2||nextIdx===6;
-  const items=new Set([...SHOPPING_ITEMS.breakfast,...SHOPPING_ITEMS.snack,...SHOPPING_ITEMS.dinner]);
-  if(!isCheat)SHOPPING_ITEMS.lunch.forEach(i=>items.add(i));
-  el.innerHTML=`<b style="color:var(--accent);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Liste pour ${DAYS_FR[nextIdx]}</b><br><br>`+[...items].map(i=>`• ${i}`).join('<br>');
-  el.classList.add('open');
-}
 function renderNutrition(dir=''){
+  initNutriPlan();
   if(!S.nutritionChecks)S.nutritionChecks={};
   const todayIdx=(new Date().getDay()+6)%7;
   const isToday=nutriDay===todayIdx;
   const dateKey=getDayDate(nutriDay);
   const checks=S.nutritionChecks[dateKey]||{};
-  const isCheat=nutriDay===2||nutriDay===6;
   const animClass=dir==='right'?'day-slide':dir==='left'?'day-slide-left':'';
 
-  // Protein data per meal
-  const MEAL_PROTEIN={breakfast:0,lunch:0,snack:0,dinner:0};
-  const meals=[
-    {id:'breakfast',...MEAL_DATA.breakfast,cal:'',prot:''},
-    {id:'lunch',time:'',name:isCheat?'Cheat Meal':'Déjeuner',isCheat,cal:'',prot:''},
-    {id:'snack',...MEAL_DATA.snack,cal:'',prot:''},
-    {id:'dinner',...MEAL_DATA.dinner,cal:'',prot:''}
-  ];
-
-  // Calculate protein progress
-  let protDone=0,protTotal=0;
-  meals.forEach(m=>{
-    const v=checks[m.id];
-    if(v!==false&&v!==undefined&&v!==null)protDone+=MEAL_PROTEIN[m.id];
-  });
-  const protPct=Math.min(100,Math.round(protDone/protTotal*100));
-  const ringR=20,ringC=2*Math.PI*ringR,ringOff=ringC*(1-protPct/100);
+  const done=S.nutritionPlan.filter(m=>{const v=checks[m.id];return v!==false&&v!==undefined&&v!==null;}).length;
+  const total=S.nutritionPlan.length;
 
   let h=`<div class="day-nav">
     <button class="day-nav-btn" onclick="navNutri(-1)">←</button>
@@ -2602,139 +2607,151 @@ function renderNutrition(dir=''){
     <button class="day-nav-btn" onclick="navNutri(1)">→</button>
   </div><div class="${animClass}">`;
 
-  // Protein summary bar
-  h+=`<div class="nutri-protein-bar">
-    <svg width="52" height="52" viewBox="0 0 52 52" style="transform:rotate(-90deg);flex-shrink:0">
-      <circle cx="26" cy="26" r="${ringR}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="4"/>
-      <circle cx="26" cy="26" r="${ringR}" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"
-        stroke-dasharray="${ringC.toFixed(1)}" stroke-dashoffset="${ringOff.toFixed(1)}" style="transition:stroke-dashoffset .6s"/>
-    </svg>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:13px;font-weight:700;color:var(--text)">Protéines : ${protDone}g / ${protTotal}g</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">${protPct}% de l'objectif · ${meals.filter(m=>{const v=checks[m.id];return v!==false&&v!==undefined&&v!==null;}).length}/4 repas</div>
-    </div>
-  </div>`;
+  if(total>0){
+    const pct=Math.round(done/total*100);
+    h+=`<div class="sport-prog" style="margin-bottom:12px">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${done}/${total} repas</span>
+      <div class="sport-prog-bar"><div class="sport-prog-fill" style="width:${pct}%"></div></div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--accent)">${pct}%</span>
+    </div>`;
+  }
 
-  // 2x2 grid
-  h+=`<div class="nutri-grid">`;
-  meals.forEach(meal=>{
+  S.nutritionPlan.forEach(meal=>{
     const selOpt=checks[meal.id];
-    const done=(selOpt!==false&&selOpt!==undefined&&selOpt!==null);
-    h+=`<div class="nutri-card ${done?'checked':''}">
-      <span class="nutri-card-time">${meal.time}</span>
-      <div class="nutri-card-check"></div>
-      <div class="nutri-card-name">${meal.name}</div>`;
-
-    if(meal.isCheat){
-      h+=`<div class="nutri-card-opts">
-        <div class="nutri-card-opt ${done?'selected':''}" onclick="nutriToggleCheat('${dateKey}','${meal.id}')">Cheat meal — libre !</div>
+    const isDone=(selOpt!==false&&selOpt!==undefined&&selOpt!==null);
+    h+=`<div class="card gap" style="margin-bottom:10px;border:1px solid ${isDone?'var(--accent)':'var(--border)'};transition:border .2s">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div onclick="nutriToggleMeal('${dateKey}','${meal.id}')" style="width:20px;height:20px;border-radius:6px;border:2px solid ${isDone?'var(--accent)':'var(--border2)'};background:${isDone?'var(--accent)':'transparent'};cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px">${isDone?'✓':''}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px">${meal.name}</div>
+          ${meal.time?`<div style="font-size:11px;color:var(--muted)">${meal.time}</div>`:''}
+        </div>
+        <button onclick="nutriEditMeal('${meal.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;font-size:14px" title="Modifier">✏️</button>
+        <button onclick="nutriDeleteMeal('${meal.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px;font-size:14px" title="Supprimer">×</button>
       </div>`;
-    } else if(meal.id==='lunch'){
-      h+=`<div class="nutri-card-opts">`;
-      LUNCH_PACKS.forEach((p,i)=>{
-        const sel=selOpt===i;
-        h+=`<div class="nutri-card-opt ${sel?'selected':''}" onclick="nutriSelectOpt('${dateKey}','${meal.id}',${i})">${p.label} — ${p.desc}</div>`;
-      });
-      h+=`</div>`;
-    } else {
-      h+=`<div class="nutri-card-opts">`;
+    if(meal.options.length>0){
+      h+=`<div style="display:flex;flex-direction:column;gap:4px;padding-left:28px">`;
       meal.options.forEach((o,i)=>{
         const sel=selOpt===i;
-        h+=`<div class="nutri-card-opt ${sel?'selected':''}" onclick="nutriSelectOpt('${dateKey}','${meal.id}',${i})">${o}</div>`;
+        h+=`<div style="display:flex;align-items:center;gap:6px">
+          <div onclick="nutriSelectOptNew('${dateKey}','${meal.id}',${i})" class="nutri-card-opt ${sel?'selected':''}" style="flex:1;cursor:pointer">${o}</div>
+          <button onclick="nutriDeleteOption('${meal.id}',${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 4px;font-size:12px" title="Supprimer">×</button>
+        </div>`;
       });
       h+=`</div>`;
     }
-    h+=`<div class="nutri-card-footer"><span>${meal.cal}</span><span style="color:var(--accent);font-weight:600">${meal.prot}</span></div>`;
+    h+=`<button onclick="nutriAddOption('${meal.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;text-align:left;padding:0 0 0 28px">+ option</button>`;
     h+=`</div>`;
   });
-  h+=`</div>`;
 
-  h+=`<button class="shopping-btn" onclick="showShopping()" style="margin-top:16px">Liste de courses pour demain</button>
-  <div class="shopping-list" id="nutri-shopping"></div></div>`;
+  h+=`<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:4px" onclick="nutriAddMeal()">+ Ajouter un repas</button>`;
+
+  // Shopping list
+  h+=`<div style="margin-top:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">Liste de courses</div>
+      ${(S.shoppingList||[]).some(s=>s.checked)?`<button onclick="shopClearDone()" class="btn btn-ghost btn-sm" style="font-size:10px">Vider cochés</button>`:''}
+    </div>`;
+  (S.shoppingList||[]).forEach(item=>{
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
+      <div onclick="shopToggle('${item.id}')" style="width:18px;height:18px;border-radius:4px;border:2px solid ${item.checked?'var(--accent)':'var(--border)'};background:${item.checked?'var(--accent)':'transparent'};cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px">${item.checked?'✓':''}</div>
+      <span style="flex:1;font-size:13px;${item.checked?'text-decoration:line-through;color:var(--muted)':''}">${item.label}</span>
+      <button onclick="shopDelete('${item.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:0 4px;font-size:14px">×</button>
+    </div>`;
+  });
+  h+=`<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="shopAdd()">+ Ajouter un article</button>`;
+  h+=`</div></div>`;
+
   document.getElementById('nutri-content').innerHTML=h;
 }
 
-// ═══ SPORT ═══
-const SPORT_PROG=[
-  {day:'Lundi',type:'',warmup:[],exos:[],stretch:[]},
-  {day:'Mardi',type:'',warmup:[],exos:[],stretch:[]},
-  {day:'Mercredi',type:'',warmup:[],exos:[],stretch:[]},
-  {day:'Jeudi',type:'',warmup:[],exos:[],stretch:[]},
-  {day:'Vendredi',type:'',warmup:[],exos:[],stretch:[]},
-  {day:'Samedi',type:'',warmup:[],exos:[],stretch:[]},
-  {day:'Dimanche',type:'',warmup:[],exos:[],stretch:[]}
-];
-
+// ═══ SPORT CRUD ═══
+const SPORT_DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+function initSportProg(){
+  if(!S.sportProg||S.sportProg.length!==7)
+    S.sportProg=SPORT_DAYS.map(day=>({day,type:'',exos:[]}));
+}
+function sportAddExo(dayIdx){
+  const label=prompt('Nom de l\'exercice :');if(!label)return;
+  const sets=prompt('Séries / reps (ex: 3×10, optionnel) :','')||'';
+  initSportProg();
+  S.sportProg[dayIdx].exos.push({id:'se-'+Date.now(),label,sets});
+  save();renderSport();
+}
+function sportEditExo(dayIdx,exoId){
+  initSportProg();const exo=S.sportProg[dayIdx].exos.find(e=>e.id===exoId);if(!exo)return;
+  const label=prompt('Nom :',exo.label);if(label===null)return;
+  const sets=prompt('Séries / reps :',exo.sets||'');
+  exo.label=label||exo.label;exo.sets=sets||'';
+  save();renderSport();
+}
+function sportDeleteExo(dayIdx,exoId){
+  if(!confirm('Supprimer cet exercice ?'))return;
+  initSportProg();
+  S.sportProg[dayIdx].exos=S.sportProg[dayIdx].exos.filter(e=>e.id!==exoId);
+  save();renderSport();
+}
+function sportEditType(dayIdx){
+  initSportProg();
+  const type=prompt('Type de séance (ex: Upper body, Repos...) :',S.sportProg[dayIdx].type||'');
+  if(type===null)return;
+  S.sportProg[dayIdx].type=type;
+  save();renderSport();
+}
 function sportToggle(dateKey,id){
   if(!S.sportChecks)S.sportChecks={};
   if(!S.sportChecks[dateKey])S.sportChecks[dateKey]={};
   S.sportChecks[dateKey][id]=!S.sportChecks[dateKey][id];
-  save();syncAutoChecks();renderSport();
+  save();renderSport();
 }
 function navSport(dir){sportDay=(sportDay+dir+7)%7;renderSport(dir>0?'right':'left');}
 function renderSport(dir=''){
+  initSportProg();
   if(!S.sportChecks)S.sportChecks={};
   const todayIdx=(new Date().getDay()+6)%7;
   const isToday=sportDay===todayIdx;
   const dateKey=getDayDate(sportDay);
   const checks=S.sportChecks[dateKey]||{};
-  const prog=SPORT_PROG[sportDay];
+  const prog=S.sportProg[sportDay];
   const animClass=dir==='right'?'day-slide':dir==='left'?'day-slide-left':'';
+
+  const allIds=prog.exos.map(e=>e.id);
+  const total=allIds.length;
+  const doneCnt=allIds.filter(id=>checks[id]).length;
+  const pct=total?Math.round(doneCnt/total*100):0;
 
   let h=`<div class="day-nav">
     <button class="day-nav-btn" onclick="navSport(-1)">←</button>
     <div class="day-nav-label${isToday?' today':''}">${prog.day}${isToday?' <span style="font-size:11px;font-weight:500;opacity:.55">· auj</span>':''}</div>
     <button class="day-nav-btn" onclick="navSport(1)">→</button>
-  </div><div class="${animClass}">`;
-
-  if(prog.rest){
-    h+=`<div class="card" style="text-align:center;padding:32px 16px">
-      <div class="sport-type-badge">😴 ${prog.type}</div>
-      <div style="font-size:36px;margin:16px 0 10px">😴</div>
-      <div style="font-size:16px;font-weight:700;margin-bottom:8px">Jour de repos</div>
-      <div style="font-size:13px;color:var(--muted)">${prog.restNote}</div>
+  </div><div class="${animClass}">
+  <div class="card gap">
+    <div style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <span class="sport-type-badge" style="cursor:pointer" onclick="sportEditType(${sportDay})">${prog.type||'— type de séance'}</span>
+      <button class="btn btn-ghost btn-sm" onclick="sportEditType(${sportDay})" style="font-size:11px">✏️ Type</button>
     </div>`;
-  } else {
-    // Build all IDs for progress tracking
-    const warmupIds=prog.warmup.map((_,i)=>'w'+i);
-    const stretchIds=(prog.stretch||[]).map((_,i)=>'str'+i);
-    let exoIds=[];
-    if(prog.tours){for(let t=1;t<=prog.tours;t++){prog.exos.forEach(e=>exoIds.push(e.id+'-t'+t));exoIds.push('rest-t'+t);}}
-    else exoIds=prog.exos.map(e=>e.id);
-    const allIds=[...warmupIds,...exoIds,...stretchIds];
-    const total=allIds.length;const doneCnt=allIds.filter(id=>checks[id]).length;
-    const pct=total?Math.round(doneCnt/total*100):0;
-    h+=`<div class="card gap">
-      <div><span class="sport-type-badge">💪 ${prog.type}</span></div>
-      ${prog.note?`<div style="font-size:12px;font-weight:700;color:var(--orange);background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.25);border-radius:8px;padding:7px 12px;margin-bottom:10px">⚡ ${prog.note}</div>`:''}
-      <div class="sport-prog">
-        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${doneCnt}/${total}</span>
-        <div class="sport-prog-bar"><div class="sport-prog-fill" style="width:${pct}%"></div></div>
-        <span style="font-family:var(--mono);font-size:10px;color:var(--accent)">${pct}%</span>
+
+  if(total>0){
+    h+=`<div class="sport-prog">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${doneCnt}/${total}</span>
+      <div class="sport-prog-bar"><div class="sport-prog-fill" style="width:${pct}%"></div></div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--accent)">${pct}%</span>
+    </div>
+    <div class="sport-section-title">💪 Exercices</div>`;
+    prog.exos.forEach(e=>{
+      const d=!!checks[e.id];
+      h+=`<div class="exo-row" style="gap:6px">
+        <div class="exo-check ${d?'done':''}" onclick="sportToggle('${dateKey}','${e.id}')"></div>
+        <span class="exo-label ${d?'done':''}" onclick="sportToggle('${dateKey}','${e.id}')" style="flex:1">${e.label}</span>
+        ${e.sets?`<span class="exo-sets">${e.sets}</span>`:''}
+        <button onclick="sportEditExo(${sportDay},'${e.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:0 4px;font-size:13px">✏️</button>
+        <button onclick="sportDeleteExo(${sportDay},'${e.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;padding:0 4px;font-size:16px;line-height:1">×</button>
       </div>`;
-    if(prog.warmup.length){
-      h+=`<div class="sport-section-title">🔥 Échauffement</div>`;
-      prog.warmup.forEach((w,i)=>{const id='w'+i;const d=!!checks[id];h+=`<div class="exo-row" onclick="sportToggle('${dateKey}','${id}')"><div class="exo-check ${d?'done':''}"></div><span class="exo-label ${d?'done':''}">${w}</span></div>`;});
-    }
-    if(prog.tours){
-      const lbl=prog.tourLabel||'Tour';
-      for(let t=1;t<=prog.tours;t++){
-        h+=`<div class="sport-section-title" style="color:var(--orange)">🔁 ${lbl} ${t}/${prog.tours}</div>`;
-        prog.exos.forEach(e=>{const id=e.id+'-t'+t;const d=!!checks[id];h+=`<div class="exo-row" onclick="sportToggle('${dateKey}','${id}')"><div class="exo-check ${d?'done':''}"></div><span class="exo-label ${d?'done':''}">${e.l}</span>${e.s?`<span class="exo-sets">${e.s}</span>`:''}</div>`;});
-        const restId='rest-t'+t;const rd=!!checks[restId];
-        h+=`<div class="exo-row" onclick="sportToggle('${dateKey}','${restId}')"><div class="exo-check ${rd?'done':''}"></div><span class="exo-label ${rd?'done':''}" style="color:var(--orange)">⏱ ${prog.restTime||90}s repos</span></div>`;
-      }
-    } else {
-      h+=`<div class="sport-section-title">💪 Exercices</div>`;
-      prog.exos.forEach(e=>{const d=!!checks[e.id];h+=`<div class="exo-row" onclick="sportToggle('${dateKey}','${e.id}')"><div class="exo-check ${d?'done':''}"></div><span class="exo-label ${d?'done':''}">${e.l}</span>${e.s?`<span class="exo-sets">${e.s}</span>`:''}</div>`;});
-    }
-    if(prog.stretch&&prog.stretch.length){
-      h+=`<div class="sport-section-title">🧘 Étirements</div>`;
-      prog.stretch.forEach((s,i)=>{const id='str'+i;const d=!!checks[id];h+=`<div class="exo-row" onclick="sportToggle('${dateKey}','${id}')"><div class="exo-check ${d?'done':''}"></div><span class="exo-label ${d?'done':''}">${s}</span></div>`;});
-    }
-    h+=`</div>`;
+    });
   }
-  h+=`</div>`;
+
+  h+=`<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="sportAddExo(${sportDay})">+ Ajouter un exercice</button>`;
+  h+=`</div></div>`;
   document.getElementById('sport-content').innerHTML=h;
 }
 
@@ -3011,9 +3028,10 @@ function runMigrations(){
 
 async function initApp(){
   // Reset si version changée (vide toutes les données sauvegardées)
-  if(localStorage.getItem('jtb3_ver')!=='2'){
+  if(localStorage.getItem('jtb3_ver')!=='3'){
     Object.keys(localStorage).filter(k=>k.startsWith('jtb3')).forEach(k=>localStorage.removeItem(k));
-    localStorage.setItem('jtb3_ver','2');
+    localStorage.setItem('jtb3_ver','3');
+    localStorage.setItem('jtb3_force_reset','1');
   }
   // 1. Charger depuis le serveur (source principale = fichier disque)
   let serverData=null;
